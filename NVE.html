@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - BST Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">BST</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">Religion & National Value Education</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any RNVE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from NVE 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+        // === 2022 Questions ===
+        {question:"The ability to think about a particular thing is part of", options:["Psychomotor content","Motor car","Correct content","None of the above"], correct:"Correct content", explanation:"Cognitive content refers to facts, concepts, generalization skills, values and attitudes relevant for learners and the society."},
+        {question:"A complex family can also be called", options:["Nuclear family","Compound family","Extended family","Multi malina family"], correct:"Extended family", explanation:"An extended family includes relatives beyond the nuclear family such as grandparents, aunts, uncles, and cousins."},
+        {question:"The following are part of complex family EXCEPT", options:["Uncle","Aunt","Cousin","Friends"], correct:"Friends", explanation:"Friends are not blood relatives and therefore not part of a complex/extended family structure."},
+        {question:"Which of the following is a role of extended family in child development?", options:["Support and encouragement for parents","Destruction of self-esteem","Danger","Ill-health"], correct:"Support and encouragement for parents", explanation:"Extended family members provide emotional, physical, and financial support to parents in raising children."},
+        {question:"Human trafficking is a ___ crime.", options:["simple","serious","small","mandatory"], correct:"serious", explanation:"Human trafficking is a grave violation of human rights and is considered a serious crime internationally."},
+        {question:"Modern day form of slavery is another name for", options:["educational concept","death","human trafficking","man made thing"], correct:"human trafficking", explanation:"Human trafficking involves the recruitment, transfer, or receipt of persons for exploitation, making it modern-day slavery."},
+        {question:"Victims of human trafficking are often deprived of education and", options:["human rights","nothing","guns","peace"], correct:"human rights", explanation:"Trafficking victims are denied basic human rights including freedom of movement, education, and dignity."},
+        {question:"Harmful traditional practices are", options:["possible opportunities given by family","achievements in the society","social amenities","age long activities that cause harm and dangers to the members of a society"], correct:"age long activities that cause harm and dangers to the members of a society", explanation:"These are practices that cause physical, mental, social, and health dangers to individuals."},
+        {question:"Types of harmful traditional practices are listed below EXCEPT", options:["Forced or early marriage","Honour killing","Dowry murder","Dancing with women"], correct:"Dancing with women", explanation:"Dancing is a cultural expression and not considered a harmful traditional practice."},
+        {question:"The psychological effect of son preference on women and the girl is the internalization of low value accorded them by society.", options:["False","True","Not sure","Not correct"], correct:"True", explanation:"Son preference leads to girls and women internalizing feelings of low self-worth and inferiority."},
+        {question:"One of the ways to prevent and stop harmful traditional practices is", options:["killing the leaders","locking yourself in a drum","compulsory education for all","sleeping"], correct:"compulsory education for all", explanation:"Education empowers individuals, especially girls, to recognize and resist harmful practices."},
+        {question:"Vocational training of young women discourages early marriage of girls.", options:["Vocational training","Playing and jumping","Being rude","Watching television"], correct:"Vocational training", explanation:"Vocational training provides economic independence and alternatives to early marriage."},
+        {question:"An environment that is characterized by acknowledgement of equality and fairness can be called", options:["violent","peaceful","fearful","a bad environment"], correct:"peaceful", explanation:"Peace is characterized by healthy interpersonal relationships, equality, and fairness."},
+        {question:"___ and ___ are types of peace.", options:["Negative,beautiful","Great,small","Violent,negative","Positive,negative"], correct:"Positive,negative", explanation:"Negative peace is absence of violence; positive peace addresses root causes of conflict and promotes justice."},
+        {question:"Peace helps everyone live in", options:["mansion","fear","harmony","violence"], correct:"harmony", explanation:"Peace fosters harmony and coexistence among individuals and communities."},
+        {question:"A disagreement among groups or individual characterized by hostility is known as", options:["Conflict","Peace","Harmony","All of the above"], correct:"Conflict", explanation:"Conflict involves opposing interests, hostility, and disagreement."},
+        {question:"War is an example of", options:["Physical conflict","Violent conflict","Community conflict","Friends conflict"], correct:"Violent conflict", explanation:"War represents armed conflict and organized violence between groups or nations."},
+        {question:"A way of choosing representative for the federal or state government position is referred to as", options:["Votodfausa community conflict","Election","Principal/Vice principal conflict","Friends conflict"], correct:"Election", explanation:"Election is the formal process of selecting representatives to hold public office."},
+        {question:"Attributes required for conflict resolution includes ALL EXCEPT", options:["Encourage teamwork","Be rude to others","Respect for others","Empower people"], correct:"Be rude to others", explanation:"Rudeness escalates conflict; respect and teamwork are essential for resolution."},
+        {question:"A constitution by nature is a document that has ___ legal basis.", options:["formal","an informal","formular","flexible"], correct:"formal", explanation:"A constitution is a formal document with legal authority that guides governance."},
+        {question:"A constitution is defined as", options:["a content of one's book","a body of rules and regulation that guides a country","the president of a country","book"], correct:"a body of rules and regulation that guides a country", explanation:"The constitution is the supreme law that establishes government structure and citizen rights."},
+        {question:"A constitution can be in form of the following EXCEPT", options:["Written","Unwritten","Liquid","Flexible"], correct:"Liquid", explanation:"Constitutions can be written or unwritten, flexible or rigid, but not 'liquid'."},
+        {question:"The arms of government includes the executive, judiciary and the", options:["police","civil defence","legal dances","legislature"], correct:"legislature", explanation:"The three arms of government are Executive, Legislature, and Judiciary."},
+        {question:"In 1914 the Northern and Southern protectorates were amalgamated by ___ Lugard.", options:["Lord","Queen","King","Princess"], correct:"Lord", explanation:"Lord Frederick Lugard amalgamated the Northern and Southern protectorates of Nigeria in 1914."},
+        {question:"One of the functions of constitution is", options:["to show us who we can be friends with","to state relationship between the different government","to show bible verses","To show Quran verses"], correct:"to state relationship between the different government", explanation:"A constitution defines the relationship among different levels and branches of government."},
+        {question:"Supremacy of the constitution simply means", options:["that the law of land is above every citizen","that you can take laws into your hands","that everyone is above the law","none"], correct:"that the law of land is above every citizen", explanation:"Constitutional supremacy means no one is above the law, including government officials."},
+        {question:"___ is the official process of choosing representatives through voting.", options:["electoral malpractice","population census","election","nomination"], correct:"election", explanation:"Election is the democratic process of selecting leaders."},
+        {question:"The following are colonial Nigerian constitution EXCEPT", options:["Clifford constitution","Richard constitution","Macpherson constitution","Woli agba constitution"], correct:"Woli agba constitution", explanation:"Clifford (1922), Richard (1946), and Macpherson (1951) were colonial constitutions."},
+        {question:"One of the reasons for the supremacy of constitution is to", options:["promote the rule of law","injure citizens","enjoy money","forget our right"], correct:"promote the rule of law", explanation:"Constitutional supremacy ensures rule of law and protects citizens' rights."},
+        {question:"The act of displaying acceptable and positive behavior on the job is known as", options:["wrong attitude to work","right attitude to work","civic education","work laws"], correct:"right attitude to work", explanation:"Right attitude to work includes punctuality, honesty, and dedication."},
+        {question:"There's a saying that 'An individual with a right attitude to work sees possibilities and not ___'", options:["possibilities","possession","impossibilities","future"], correct:"impossibilities", explanation:"Positive attitude focuses on solutions rather than obstacles."},
+        {question:"An individual that has right attitude to work does not", options:["play","pray","dance","steal or lie"], correct:"steal or lie", explanation:"Honesty and integrity are key attributes of right attitude to work."},
+        {question:"Which of the following attributes is odd?", options:["Truthfulness","Punctuality","Irresponsibility","Discipline"], correct:"Irresponsibility", explanation:"Irresponsibility is a negative trait; others are positive work attributes."},
+        {question:"Progress and development are ___ of right attitude to work.", options:["benefits","causes","disadvantages","examples"], correct:"benefits", explanation:"Right attitude to work leads to productivity, progress, and national development."},
+        {question:"A bad attitude to work leads to", options:["good national image","bad national image","progress","peace"], correct:"bad national image", explanation:"Poor work ethic damages reputation and productivity."},
+        {question:"INEC is an ___ body.", options:["academic","environmental","electoral","illegal"], correct:"electoral", explanation:"INEC stands for Independent National Electoral Commission."},
+        {question:"Free and fair election promotes ___ in the country.", options:["declined productivity","danger","conflict","peaceful coexistence"], correct:"peaceful coexistence", explanation:"Credible elections foster stability and peaceful transfer of power."},
+        {question:"Electoral malpractice can be prevented through", options:["strict compliance to electorate laws","small salary","unlawful act","forgetfulness"], correct:"strict compliance to electorate laws", explanation:"Enforcement of electoral laws prevents manipulation."},
+        {question:"Election involves", options:["non-living things","choosing a parent","easy change in government","fashion contest"], correct:"easy change in government", explanation:"Elections enable peaceful and orderly change of government."},
+        {question:"One of the following is not a type of election.", options:["By-election","Street election","Direct election","Indirect election"], correct:"Street election", explanation:"Street election is not a recognized type of electoral process."},
+        {question:"A person who violates law or has breached a rule is referred to as a", options:["criminal","commoner","civilian","officer"], correct:"criminal", explanation:"A criminal is someone who commits an offense against the law."},
+        {question:"Broadly, crimes are divided into", options:["one","zero","two","none of the above"], correct:"two", explanation:"Crimes are broadly classified as felonies (serious) and misdemeanors (less serious)."},
+        {question:"Property crimes are offences against", options:["animals","computers","pastors","property"], correct:"property", explanation:"Property crimes include theft, burglary, arson, and vandalism."},
+        {question:"The following groups have increased the level of insecurity in Nigeria EXCEPT", options:["Education","Boko Haram","Herdsmen","Kidnappers"], correct:"Education", explanation:"Education reduces crime and promotes security; others are security threats."},
+        {question:"Various common crimes in the society include all but ONE.", options:["Theft","Rape","Population","Murder"], correct:"Population", explanation:"Population is a demographic term, not a crime."},
+        {question:"Stealing is also known as", options:["theft","murder","rape","human trafficking"], correct:"theft", explanation:"Theft is the unlawful taking of another's property."},
+        {question:"Consequence of rape among many is", options:["rapist","contraction of venereal disease","good health","good job"], correct:"contraction of venereal disease", explanation:"Rape can lead to STIs, trauma, and unwanted pregnancy."},
+        {question:"The crime of killing someone deliberately is called", options:["case study","unconscious act","murder","mother"], correct:"murder", explanation:"Murder is the intentional and unlawful killing of another person."},
+        {question:"When food is made poisonous or dirty, it is", options:["healthy","good to eat","valuable","contaminated"], correct:"contaminated", explanation:"Food contamination makes it unsafe for consumption."},
+        {question:"___ refers to how a country is kept together peacefully to work and enjoy resources available.", options:["National security","Emergency","Adulteration","Insecurity"], correct:"National security", explanation:"National security involves protecting citizens, territory, and resources."},
+        {question:"There are some behaviours that can affect peaceful co-existence of people in the society.", options:["True","False","I don't know","Maybe"], correct:"True", explanation:"Negative behaviors like violence and intolerance disrupt peace."},
+        {question:"A nation where there is unrest or danger is said to be", options:["safe","unsafe","secured","developing"], correct:"unsafe", explanation:"Insecurity makes a nation unsafe for its citizens."},
+        {question:"Below are crimes that affect National security EXCEPT", options:["Pipeline vandalization","Arson","Terrorism","Battering"], correct:"Battering", explanation:"Battering is a personal crime; others have broader national impact."},
+        {question:"A situation where someone sinks inside water which may lead to death is called", options:["fire","fake drug","drowning","theft"], correct:"drowning", explanation:"Drowning is respiratory impairment from submersion in liquid."},
+        {question:"___ is used to combat fire outbreak.", options:["Water","Mouth","Cotton wool","Fire extinguisher"], correct:"Fire extinguisher", explanation:"Fire extinguishers are specifically designed to put out fires."},
+        {question:"Emergency situation such as accident can be managed by", options:["road safety officers","proprietor","yahoo guys","computer operator"], correct:"road safety officers", explanation:"FRSC and emergency responders manage road accidents."},
+        {question:"___ takes care of food and drugs produced before it is given out to the public in Nigeria.", options:["E.F.C.C","NAFDAC","INEC","Food sellers"], correct:"NAFDAC", explanation:"NAFDAC regulates and controls food and drug safety."},
+        {question:"Victim of rape means", options:["a person who just died","a rapist","the person who was raped","a lawyer of rape case"], correct:"the person who was raped", explanation:"The victim is the survivor of the sexual assault."},
+        {question:"One of the ways to prevent the spread of COVID-19 disease is", options:["by shaking hands with everyone","by running away from home","drinking plenty of water","by using nose mask everywhere we go"], correct:"by using nose mask everywhere we go", explanation:"Face masks reduce transmission of respiratory droplets."},
+        
+        // === 2021 Questions ===
+        {question:"In 1914, the Northern and ___ protectorates were amalgamated by Lord Luggard.", options:["Lord North","Southern","Western","Emily state"], correct:"Southern", explanation:"The Northern and Southern protectorates were amalgamated in 1914."},
+        {question:"When a person is punctual to work, such is said to have", options:["mental problem","bad attitude","right attitude to work","too know character"], correct:"right attitude to work", explanation:"Punctuality is a positive work ethic."},
+        {question:"These are attributes of right attitude to work EXCEPT", options:["truthfulness","dependability","indiscipline","punctuality"], correct:"indiscipline", explanation:"Indiscipline is a negative trait contrary to right attitude."},
+        {question:"Decline in productivity is as a result of", options:["having too much sense","creativity","having right attitude","not having right attitude to work"], correct:"not having right attitude to work", explanation:"Poor work attitude reduces output and efficiency."},
+        {question:"These are types of negative behavior but ONE.", options:["dishonesty","excessive love for money","examination malpractice","excitement"], correct:"excitement", explanation:"Excitement is a normal emotion, not negative behavior."},
+        {question:"Negative behaviors can be described as", options:["attitudes that does not conform to the standard of the society","choices made by young people","educative measures","all of the above"], correct:"attitudes that does not conform to the standard of the society", explanation:"Negative behaviors violate societal norms and values."},
+        {question:"Listed below are other names for negative behavior EXCEPT", options:["bad behavior","immoral behavior","legal behavior","all of the above"], correct:"legal behavior", explanation:"Legal behavior conforms to law and is not negative."},
+        {question:"When people have disregard for time, it will lead to", options:["inefficiency at their place of work","higher productivity","provision of roads","production in their place of work"], correct:"inefficiency at their place of work", explanation:"Poor time management reduces workplace efficiency."},
+        {question:"The illegal acts carried out by some politicians, security agents etc to win election is called", options:["election","electoral malpractice","political acts","voting structure"], correct:"electoral malpractice", explanation:"Electoral malpractice undermines democratic processes."},
+        {question:"Manipulation of votes, destruction of ballot boxes, underage voting are called", options:["basic terms","electoral malpractices","voting terms","goodwill message"], correct:"electoral malpractices", explanation:"These are forms of electoral fraud."},
+        {question:"Electoral malpractice leads to violence and", options:["social unrest","encouragement of voters","favourable condition","none of the above"], correct:"social unrest", explanation:"Malpractice erodes trust and may trigger violence."},
+        {question:"Election results should be promptly announced so as to prevent electoral malpractice.", options:["False","Wrong","True","Am not sure"], correct:"True", explanation:"Transparency and timely announcement reduce suspicion."},
+        {question:"___ is the official process of recording the name of all citizens who are of voting age with all bio-data on the voters register.", options:["Voting","Election box","Voters registration","Balloting"], correct:"Voters registration", explanation:"Voter registration creates the electoral roll."},
+        {question:"Voting is our ___ duty to our country.", options:["civic","social","custom","reproductive"], correct:"civic", explanation:"Voting is a civic responsibility of citizens."},
+        {question:"Legitimacy of government is one of the ___", options:["decisions of democracy","importance of voting","constitution","right attitude to work"], correct:"importance of voting", explanation:"Voting confers legitimacy on elected governments."},
+        {question:"___ was the pacesetter constitution in Nigeria.", options:["Textbook","Manual","Clifford constitution","right attitude to work"], correct:"Clifford constitution", explanation:"The 1922 Clifford Constitution introduced elective principles."},
+        {question:"The laws in the constitution are applicable to all ___ in the country.", options:["children","journalists","men","individuals"], correct:"individuals", explanation:"The constitution applies equally to all citizens."},
+        {question:"Supremacy of constitution promotes ___", options:["rule of law","prostitution","bad behaviours","all of the above"], correct:"rule of law", explanation:"Constitutional supremacy upholds the rule of law."},
+        {question:"Rights and duties of citizen are guarded by ___", options:["joystick","parents","supremacy of constitution","pension"], correct:"supremacy of constitution", explanation:"The constitution guarantees fundamental rights."},
+        {question:"A constitution can be ___ or ___", options:["broad, wide","written, unwritten","big, small","gold, silver"], correct:"written, unwritten", explanation:"Constitutions may be codified (written) or uncodified."},
+        {question:"Acts that are harmful to individuals, community and the country are called ___", options:["cyber-cafe","common crime","actions","lawful behaviours"], correct:"common crime", explanation:"Crimes cause harm and are punishable by law."},
+        {question:"Diversion of public funds for private use is known as ___", options:["bank transfer","division of money","sharing of money","embezzlement"], correct:"embezzlement", explanation:"Embezzlement is fraudulent taking of entrusted funds."},
+        {question:"One of the following causes crime in the society", options:["unemployment","overseas school","fashion","carefulness"], correct:"unemployment", explanation:"Economic hardship and unemployment drive crime."},
+        {question:"Parents are expected to prevent crime by ___", options:["obeying their children","eating too much","performing their duties on their children","providing cocaine for their children"], correct:"performing their duties on their children", explanation:"Proper upbringing instills values that prevent crime."},
+        {question:"___ is a sudden event that results in damage, injury or death.", options:["Drawing","Accident","Conflict","Party"], correct:"Accident", explanation:"Accidents are unplanned, harmful occurrences."},
+        {question:"A person involved in illegal use of fire to destroy a house or property is called", options:["arsonist","keyboardist","rapist","nutritionist"], correct:"arsonist", explanation:"Arson is the criminal act of deliberately setting fire."},
+        {question:"Crimes committed against an individual is known as", options:["population","personal crime","pastoral crime","all of the above"], correct:"personal crime", explanation:"Personal crimes include assault, robbery, and rape."},
+        {question:"The following include examples of hard drugs EXCEPT", options:["cocaine","marijuana","indian hemp","panadol"], correct:"panadol", explanation:"Panadol (paracetamol) is an analgesic, not a hard drug."},
+        {question:"A process through which disaster can be dealt with, prevented and controlled is known as", options:["manager","early mining","emergency management","common crime"], correct:"emergency management", explanation:"Emergency management involves preparedness and response."},
+        {question:"___ can help prevent crime.", options:["Being conscious of one's environment","Crying when crime happens","Killing your family members","Social parties"], correct:"Being conscious of one's environment", explanation:"Situational awareness helps avoid dangerous situations."},
+        {question:"N.D.L.E.A helps to", options:["buy drugs","control the trade and use of drugs and to prosecute drug dealers","to sell drugs","overcome fear of drugs"], correct:"control the trade and use of drugs and to prosecute drug dealers", explanation:"NDLEA is Nigeria's drug law enforcement agency."},
+        {question:"When an individual abstains from violence, it makes him/her", options:["avoid friends","bad person","a good citizen","an entrepreneur"], correct:"a good citizen", explanation:"Peaceful conduct is a mark of good citizenship."},
+        {question:"To avoid criminal behaviours, Government should provide adequate", options:["playing materials","market women","pirates","security personnel"], correct:"security personnel", explanation:"Adequate policing deters crime."},
+        {question:"Murder means", options:["an act of intentionally killing a fellow citizen","killing oneself","cheating another person","taking what does not belongs to you"], correct:"an act of intentionally killing a fellow citizen", explanation:"Murder is unlawful, intentional homicide."},
+        {question:"One of the following can lead a person into crime.", options:["religion","peer influence","common sense","illegal children"], correct:"peer influence", explanation:"Negative peer pressure can lead to criminal behavior."},
+        {question:"___ is defined as the illegal copy of a document or altering figures to suit one's illicit desire.", options:["Illegality","Legalism","Forgery","Copy copy"], correct:"Forgery", explanation:"Forgery involves falsifying documents with intent to deceive."},
+        {question:"People who are responsible for preventing crime in the society are called", options:["preventors","keepers","agencies","security agents"], correct:"security agents", explanation:"Police and other law enforcement prevent crime."},
+        {question:"Pick out the odd item from the following.", options:["theft","kidnapping","self reliance","battering"], correct:"self reliance", explanation:"Self-reliance is a positive trait; others are crimes."},
+        {question:"Crimes can be reported to", options:["law enforcement agencies","friends","family","oneself"], correct:"law enforcement agencies", explanation:"Crimes should be reported to police or relevant authorities."},
+        {question:"___ may be contacted immediately a crime is committed.", options:["Game centre","Media stations","Hotels","Big brother Naija show"], correct:"Media stations", explanation:"Media can help alert authorities and public."},
+        
+        // === 2020 Questions ===
+        {question:"A group of people who are related by marriage ties are called", options:["family","age group","rocks","laws"], correct:"family", explanation:"Family is the basic unit of society bound by blood or marriage."},
+        {question:"Peace can be promoted through", options:["conditions","conflict","forgiveness","justice league"], correct:"forgiveness", explanation:"Forgiveness reconciles parties and restores peace."},
+        {question:"Conflict means", options:["absence of peace","disagreement or total absence of peace","presence of peace and love","a and b"], correct:"disagreement or total absence of peace", explanation:"Conflict is a state of discord and hostility."},
+        {question:"Conflict can be classified into ___ and ___", options:["good, bad","chronic, simple","fair, unfair","violent, non-violent"], correct:"violent, non-violent", explanation:"Conflicts may be expressed violently or peacefully."},
+        {question:"Human trafficking majorly involves ___ and ___ as victims.", options:["male, boys","female, male","women, girls","women, children"], correct:"women, children", explanation:"Women and children are most vulnerable to trafficking."},
+        {question:"The following include agency that are in charge of safety and wellbeing except", options:["NAFDAC","Bar club","EFCC","the Nigeria Police"], correct:"Bar club", explanation:"Bar club is not a government safety agency."},
+        {question:"Extended family of a child provides ___ and ___ support.", options:["physical, emotional","political, economical","wealth, abusive","cartoons, Yoruba movies"], correct:"physical, emotional", explanation:"Extended family offers both material and psychological support."},
+        {question:"Culture involves ___ of a particular society.", options:["religion, dance, shoe sizes, car types","norms, values, attitudes, language","greeting mode, movie preference, friends","dressing, phone types, pastor, title"], correct:"norms, values, attitudes, language", explanation:"Culture encompasses shared beliefs, practices, and language."},
+        {question:"The two aspects of culture are", options:["jovial and critical","dynamic and inter relation","material and non-material","language and value"], correct:"material and non-material", explanation:"Material culture includes artifacts; non-material includes beliefs."},
+        {question:"A weak family bond leads to", options:["disagreement","internal happiness","joy over bound","provision"], correct:"disagreement", explanation:"Weak family ties cause conflict and instability."},
+        {question:"One of the reasons why we study social studies is to become ___ citizens in the society.", options:["lazy","unserious","overzealous","good"], correct:"good", explanation:"Social studies prepares responsible, informed citizens."},
+        {question:"A collection of people in a given age range as decided by the community is called", options:["age group","classmate","family","primary group"], correct:"age group", explanation:"Age groups organize community responsibilities."},
+        {question:"___ is the illegal manufacturing, distribution and sale of drug.", options:["Transportation of drug","Drug trafficking","Illegal drugging","Drug abuse"], correct:"Drug trafficking", explanation:"Drug trafficking is the illicit drug trade."},
+        {question:"Death, increased corruption, shame are all", options:["attributes of human trafficking","prevention of crime","consequences of drug trafficking","results of socialization"], correct:"consequences of drug trafficking", explanation:"Drug trafficking has severe social consequences."},
+        {question:"___ is the act of taking to the laws, rules and the norms of the society.", options:["Peace","Conflict","Uneasy conflict","Obedience"], correct:"Obedience", explanation:"Obedience is compliance with societal rules."},
+        {question:"___ are those who do not blow up the fault of their fellow human beings but tolerates them.", options:["People","Peaceful people","uneducated fellow","uncultured beings"], correct:"Peaceful people", explanation:"Peaceful individuals practice tolerance."},
+        {question:"Rights are ___ enjoyed by citizens in society.", options:["duties","privileges","orthodox things","predetermined ideas"], correct:"privileges", explanation:"Rights are entitlements or privileges guaranteed by law."},
+        {question:"Supremacy of the constitution simply means that", options:["the law is not above every citizen","the law is above every citizens","everybody can take law into his/her hands","the law is not existing"], correct:"the law is above every citizens", explanation:"No one is above the constitution."},
+        {question:"These are types of negative behaviour except", options:["dishonesty","excessive love for money","intelligent quotient","examination malpractice"], correct:"intelligent quotient", explanation:"IQ is a measure of intelligence, not behavior."},
+        {question:"All are ways of protecting human right except", options:["mass media","bad governance","enhancement of forceful groups","enlightenment"], correct:"bad governance", explanation:"Bad governance violates human rights."},
+        {question:"Which of the following is not a process of voting?", options:["Registration of voters' card","Accreditation of voters' card","Distribution of ballot papers","hijacking of ballot box"], correct:"hijacking of ballot box", explanation:"Ballot hijacking is electoral malpractice, not a proper process."},
+        {question:"The attitudes which counter the ideas of the society and are not acceptable by the society are called", options:["ideals","behaviours concept","non-right attitude","negative behaviours"], correct:"negative behaviours", explanation:"Negative behaviors violate societal norms."},
+        {question:"___ and ___ should be given to people who have displayed exemplary character.", options:["Reward, reinforcement","Organized punishment","Death, expulsion","Sanctions, prayers"], correct:"Reward, reinforcement", explanation:"Positive reinforcement encourages good behavior."},
+        {question:"Sanctions for negative behaviour are ___ and ___", options:["thanksgiving, prayers","payment of fines, imprisonment","abusive words, death","life, weeping"], correct:"payment of fines, imprisonment", explanation:"Legal sanctions punish and deter crime."},
+        {question:"The body of rules and regulation that guides the affair of a country is referred to as", options:["legal writing","unwritten laws","constitution","government handwriting"], correct:"constitution", explanation:"The constitution is the fundamental law of the land."},
+        {question:"The ___ and ___ protectorates were amalgamated in 1914.", options:["Northern, Eastern","Western, Southern","Northern, Southern","Fulanis, Logosians"], correct:"Northern, Southern", explanation:"The 1914 amalgamation created modern Nigeria."},
+        {question:"The following are forms of electoral malpractice, except", options:["manipulation of votes","underage voting","stealing of ballot boxes","voting with voters card"], correct:"voting with voters card", explanation:"Voting with voter's card is the correct process."},
+        {question:"One of the consequences of electoral malpractice is", options:["it leads to discouragement of political participation","it leads to peaceful coexistence","it leads to beating of voters","balanced sharing of social amenities"], correct:"it leads to discouragement of political participation", explanation:"Malpractice erodes trust in democracy."},
+        {question:"Free and fair election promotes", options:["unrest","stability","illiteracy","wastage"], correct:"stability", explanation:"Credible elections foster political stability."},
+        {question:"A crime is a/an ___ activity.", options:["ordinary","lawful","illegal","legal"], correct:"illegal", explanation:"Crimes are acts prohibited by law."},
+        {question:"Security means", options:["freedom from home","freedom from teachers","freedom from government","freedom from danger or threat"], correct:"freedom from danger or threat", explanation:"Security is protection from harm."},
+        {question:"___ can lead to death sentence.", options:["Murder","Fighting","Clapping","Slapping"], correct:"Murder", explanation:"Capital punishment may apply for murder in some jurisdictions."},
+        {question:"Security education is expected to begin at ___ level.", options:["church","dancing","praying","family"], correct:"family", explanation:"Security awareness starts at home."},
+        {question:"The following ways except one help to prevent or hinder crime from occurring.", options:["Shouting","Calling","Hiding","Reporting"], correct:"Hiding", explanation:"Hiding doesn't prevent crime; reporting does."},
+        {question:"One of the ways by which crimes can be observed is", options:["being unconscious of one's environment","watching out for suspicious actions of known and unknown people","crying when crime happens","freedom from danger or threat"], correct:"watching out for suspicious actions of known and unknown people", explanation:"Vigilance helps detect and prevent crime."},
+        {question:"Which of the following best describes emergency management?", options:["A process of allowing disasters to degenerate","Process of dealing with events","Process through which disasters can be dealt with, prevented and controlled","Efforts made to boost economic accident in the state"], correct:"Process through which disasters can be dealt with, prevented and controlled", explanation:"Emergency management covers mitigation, preparedness, response, and recovery."},
+        {question:"The function of NDLEA is", options:["to protect the image of the country","to buy drugs","to sell drugs","to control the trade and use of drugs and to prosecute drug barons"], correct:"to control the trade and use of drugs and to prosecute drug barons", explanation:"NDLEA combats drug trafficking and abuse."},
+        {question:"The primary functions of the Nigeria Police is", options:["to prevent and detect crimes","to preserve drugs","to mount road block","to collect salary"], correct:"to prevent and detect crimes", explanation:"Police maintain law and order."},
+        {question:"The act of shunning moral decadence and violence makes one become", options:["a man of God","employed","a good citizen","rich"], correct:"a good citizen", explanation:"Moral uprightness is a civic virtue."},
+        {question:"Adequate personnel on security should be provided by the government to", options:["pray and feast","avoid giving birth","help avoid criminal behaviours","to stand at toll gates and beg"], correct:"help avoid criminal behaviours", explanation:"Visible security presence deters crime."},
+        {question:"The act of intentionally killing a fellow citizen is called", options:["rape","kidnapping","murder","killing"], correct:"murder", explanation:"Murder is unlawful, intentional homicide."},
+        {question:"Security breach in the society can result to", options:["accidental discharge","civil unrest","communication gap","ignorance"], correct:"civil unrest", explanation:"Security failures may trigger social disorder."},
+        {question:"Boko Haram is an example of ___ people.", options:["security threat","pirates","security population","association"], correct:"security threat", explanation:"Boko Haram is a terrorist group threatening national security."},
+        {question:"Identify the odd from the following.", options:["Kidnapping","Education","Rape","Murder"], correct:"Education", explanation:"Education is positive; others are crimes."},
+        {question:"Peer influence can lead promising youths into", options:["religion","common sense","legal marriage","committing crime"], correct:"committing crime", explanation:"Negative peer pressure promotes delinquency."},
+        {question:"___ is the illegal copy of a document or altering figures to suit ones illicit desire.", options:["Illegality","Legality","Forgery","Copy cat"], correct:"Forgery", explanation:"Forgery is falsification of documents."},
+        {question:"People who are responsible for preventing crime in the society are called", options:["preventers","security agents","keepers","security agencies"], correct:"security agents", explanation:"Law enforcement officers prevent crime."},
+        {question:"Crimes will be drastically reduced when parents perform their duties", options:["periodically","not always","on demand","as expected"], correct:"as expected", explanation:"Proper parenting instills discipline."},
+        
+        // === 2018 Questions ===
+        {question:"Social studies is the study of man in relation to his ___ and ___", options:["health, wealth","physical, economic desire","social, physical environment","importance, educative structure"], correct:"social, physical environment", explanation:"Social studies examines human interaction with environment."},
+        {question:"Facts, concepts, skills, values and attitudes are all", options:["social studies content","essentials in social studies","rudiments of social studies","social studies domain"], correct:"social studies content", explanation:"These are components of social studies curriculum."},
+        {question:"Which of the following deals with retention and memory?", options:["Psychomotor contents","Cognitive contents","Affective contents","Educative contents"], correct:"Cognitive contents", explanation:"Cognitive domain involves thinking, memory, and knowledge."},
+        {question:"One of the following is a role of extended family members in child development.", options:["Procreation","Recruiting helper","Promoting negative behaviour","Sharing folklories"], correct:"Sharing folklories", explanation:"Extended family transmits cultural heritage."},
+        {question:"The following are social consequences of children and women trafficking EXCEPT", options:["productivity","loss of human resources","sexual violence","life of crime addiction"], correct:"productivity", explanation:"Productivity is economic; others are social consequences."},
+        {question:"All but ONE of the following are preventive measures against human trafficking.", options:["Awareness raising","Education","Non-challant attitude","Advocacy legislation"], correct:"Non-challant attitude", explanation:"Complacency enables trafficking; vigilance prevents it."},
+        {question:"The age long activities which cause social, physical, mental, and health dangers or damages to people are called", options:["longevity practices","harmful traditional practices","human trafficking activities","age difference crimes"], correct:"harmful traditional practices", explanation:"These practices violate human rights."},
+        {question:"Son preference, early marriage, mutilation, taboo, widowhood practices are all", options:["human trafficking activities","crimes","tutorial lessons","harmful traditional practices"], correct:"harmful traditional practices", explanation:"These are examples of harmful traditional practices."},
+        {question:"The absence of war, disagreement or discord is known as", options:["conflict","preventive measures","peace","absence of peaceful living"], correct:"peace", explanation:"Peace is harmony and absence of conflict."},
+        {question:"___ is known as a situation whereby the original cause of conflict has not been removed and resolution is short termed.", options:["Uneasy peace","Positive peace","Reverse conflict","Violent conflict"], correct:"Uneasy peace", explanation:"Negative peace is temporary absence of violence."},
+        {question:"The following include factors responsible for children and women trafficking EXCEPT", options:["poverty","ill luck","increase in demand for foreign workers","false hope of continuing education or working abroad"], correct:"ill luck", explanation:"Trafficking is driven by structural factors, not luck."},
+        {question:"Which of these is NOT a consequence of harmful traditional practices?", options:["Problems at child birth","Exploitation of children","Fulfilment of dreams","Deprivation of schooling"], correct:"Fulfilment of dreams", explanation:"Harmful practices cause harm, not fulfillment."},
+        {question:"A social group in which members are intimate and know one another is known as", options:["technical social group","intermediate social group","primary social group","secondary group"], correct:"primary social group", explanation:"Primary groups have close, personal relationships."},
+        {question:"Example of communal/intra ethnic conflict is", options:["Ife/Modakeke conflict","Ibo/Itsekiri conflict","Yoruba conflict","God and Satan conflict"], correct:"Ife/Modakeke conflict", explanation:"Ife-Modakeke is a historical intra-ethnic conflict in Nigeria."},
+        {question:"Conflict management and resolution includes the following EXCEPT", options:["dialogue","hanging the other party","court rulings","mediation"], correct:"hanging the other party", explanation:"Violence is not a conflict resolution method."},
+        {question:"Compromise, one of conflict management means", options:["preparing to launch an attack","radioactive display","settling a conflict by consent reached by mutual concessions","advising the parties involved in conflict"], correct:"settling a conflict by consent reached by mutual concessions", explanation:"Compromise involves give-and-take."},
+        {question:"In conflict resolution, attributes required are stated below EXCEPT", options:["mutual understanding","respect for rule of law","tolerance in the face of provocation","high mindedness"], correct:"high mindedness", explanation:"Arrogance hinders resolution."},
+        {question:"These are various ways traffickers often operate EXCEPT", options:["using violence or threatening the person or their family","harming or depriving the person of basic necessities such as food, sleep","allowing victims to attend religious services","limiting freedom of movement and restricting contact with friends and family"], correct:"allowing victims to attend religious services", explanation:"Traffickers control victims; they don't grant freedom."},
+        {question:"Religious organizations, compulsory education for all, media and vocational training for young women are", options:["prevention of harmful traditional practices","consequences of harmful traditional practices","preventive measures for child birth","types of human trafficking"], correct:"prevention of harmful traditional practices", explanation:"These interventions combat harmful practices."},
+        {question:"There are ___ types of peace.", options:["four","seven","two","nineteen"], correct:"two", explanation:"Peace is classified as negative and positive peace."},
+        {question:"___ means the positive views, feelings or opinions an individual has towards work.", options:["Right attitude to work","Constitution","Activities about one's work","General view of people on a job"], correct:"Right attitude to work", explanation:"Right attitude includes commitment and positivity."},
+        {question:"The following include types of negative behaviour EXCEPT", options:["dishonesty","excessive love of money","sleeping on a couch","cultism"], correct:"sleeping on a couch", explanation:"Sleeping is normal rest, not negative behavior."},
+        {question:"Honesty, integrity, discipline and commitment are all", options:["attitudes to work","attributes of work","propretial organization","production of good things at work"], correct:"attributes of work", explanation:"These are positive work attributes."},
+        {question:"These are significance of right attitude to work but ONE.", options:["Higher productivity","Efficiency","Progress","Decline in national image"], correct:"Decline in national image", explanation:"Right attitude improves national image."},
+        {question:"The attitude which counter the ideas of the society and are not acceptable by the society are called", options:["ideals","behaviours","non-right attitude","negative behaviours"], correct:"negative behaviours", explanation:"Negative behaviors violate social norms."},
+        {question:"When people have disregard for time, it will lead to", options:["sufficiency in their place of work","inefficiency in their places of work","quick promotion from bosses","decorations and gift from customers"], correct:"inefficiency in their places of work", explanation:"Poor time management reduces productivity."},
+        {question:"___ and reinforcement should be given to people who have displayed exemplary character.", options:["Rewards","Enforcement","Organized punishment","Sanctions"], correct:"Rewards", explanation:"Positive reinforcement encourages good conduct."},
+        {question:"Payment of fine, imprisonment, expulsion are", options:["sanctions for positive behaviours","sanctions for negative behaviours","strategies for promoting negative behaviours","psychological effects of right attitude to work"], correct:"sanctions for negative behaviours", explanation:"Sanctions punish and deter misconduct."},
+        {question:"One of the strategies for promoting positive behaviour is that", options:["government should promote teaching of nudity in schools","parents should kill their guilty children","religious organization should help to promote positive behavioural changes by preaching on good moral","government should make laws but refuse to enforce it"], correct:"religious organization should help to promote positive behavioural changes by preaching on good moral", explanation:"Religious institutions shape moral values."},
+        {question:"___ are human rights that aim at assuring the enjoyment of culture and its components in conditions of equality.", options:["Civic rights","Religious right","Human rights","Cultural right"], correct:"Cultural right", explanation:"Cultural rights protect heritage and identity."},
+        {question:"Rights are also called", options:["privileges","doom","forceful gifts","intentional giving"], correct:"privileges", explanation:"Rights are legal entitlements."},
+        {question:"The following are ways of protecting human right EXCEPT", options:["mass media","election of good governance","enhancement of forceful groups","independence of judiciary"], correct:"enhancement of forceful groups", explanation:"Forceful groups often violate rights."},
+        {question:"One of these is a step for protecting human rights.", options:["Advocacy prevention","Freedom of press","Constitution repair","None of the above"], correct:"Freedom of press", explanation:"Free press exposes rights violations."},
+        {question:"___ can be defined as a decision making process by which a citizen chooses an individual to hold public office.", options:["Voting","Choosing","Selecting","Election"], correct:"Election", explanation:"Election is the formal selection of representatives."},
+        {question:"Which of the following is NOT true?", options:["Election is an instrument of communication between the ruler and the ruled","Election helps to abuse power","Election helps to unite people from different ethnic group in the country","None of the above"], correct:"Election helps to abuse power", explanation:"Elections should check, not enable, abuse of power."},
+        {question:"INEC and SIEC are ___ in Nigeria.", options:["Electoral bodies","Voters club","Political parties","Ballot commission"], correct:"Electoral bodies", explanation:"INEC conducts federal; SIEC conducts state elections."},
+        {question:"The body of rules and regulations that guide the affairs of a country is referred to as", options:["legal writing","unwritten laws","government handwriting","constitution"], correct:"constitution", explanation:"The constitution is supreme law."},
+        {question:"___ was the pacesetter (first) constitution in Nigeria.", options:["Macpherson constitution","Richard constitution","Clifford constitution","Lyttleton constitution"], correct:"Clifford constitution", explanation:"1922 Clifford Constitution introduced elective principle."},
+        {question:"One of the functions of INEC is", options:["to disorganize all election","to register political parties based on constitutional provision","to monitor crazy politicians","to arrange people on admission"], correct:"to register political parties based on constitutional provision", explanation:"INEC registers and regulates political parties."},
+        {question:"The following includes importance of free and fair election BUT", options:["promotes stability and peaceful coexistence","brings about development and growth of the nation","brings about good governance","makes people lose faith in the electoral commission"], correct:"makes people lose faith in the electoral commission", explanation:"Free elections build, not erode, trust."},
+        {question:"Crimes are ___ under laws of a country.", options:["beaten","commendable","punishable","rewarded"], correct:"punishable", explanation:"Crimes attract legal penalties."},
+        {question:"Taking something that belongs to someone else and keeping it is a common crime known as", options:["theft","murder","forgery","battering"], correct:"theft", explanation:"Theft is unlawful taking of property."},
+        {question:"The crime of getting money from people through deceitful means is called", options:["rape","fraud","treason","killing"], correct:"fraud", explanation:"Fraud involves deception for financial gain."},
+        {question:"One of these is NOT a common crime.", options:["Manslaughter","Kidnapping","Contempt of court","Illegal bathing"], correct:"Illegal bathing", explanation:"Illegal bathing is not a recognized crime."},
+        {question:"Drug trafficking means", options:["an illegal trade which involves carrying contraband drugs within and across the country","a legal receipt of contraceptives within the borders of the country","an illegal acceptance of money from someone you don't know","all of the above"], correct:"an illegal trade which involves carrying contraband drugs within and across the country", explanation:"Drug trafficking is illicit drug trade."},
+        {question:"___ is a situation of lack and deprivation which makes people do wrong things.", options:["Greed","Poverty","Unemployment","Self employ"], correct:"Poverty", explanation:"Poverty can drive individuals to crime."},
+        {question:"The following can lead to crime EXCEPT", options:["poverty","peer influence","integrity","greediness"], correct:"integrity", explanation:"Integrity prevents crime."},
+        {question:"Children that are left on their own without parental guidance and supervision may", options:["become rich","think well and help others","prepare for good things","commit criminal acts"], correct:"commit criminal acts", explanation:"Lack of supervision increases delinquency risk."},
+        {question:"Out of the following, one is NOT an effect of common crimes.", options:["Peace and contentment in the society","Fear as a result of insecurity","Disturbed economic activities","Mutual suspicion among citizens"], correct:"Peace and contentment in the society", explanation:"Crime disrupts peace."},
+        {question:"Cohesion means", options:["a condition in which people are closely united","a situation of joining","super glueing","magnetization"], correct:"a condition in which people are closely united", explanation:"Social cohesion is unity and solidarity."},
+        {question:"Empowerment of youth helps to", options:["increase crimes","overlook crimes","prevent crimes","educate crime"], correct:"prevent crimes", explanation:"Youth empowerment provides alternatives to crime."},
+        {question:"___ should respond to distress calls by citizens appropriately to help nip crime in the bud before it goes out of hand.", options:["Youths","God","Parents and police","Law enforcement agents"], correct:"Law enforcement agents", explanation:"Police must respond promptly to prevent crime."},
+        {question:"Prevention of crime entails", options:["sensitization of citizens on the need to be vigilant and conscious of their environment","propagation of crime from place to place","neglect of borders to enhance entrance of criminals","none of the above"], correct:"sensitization of citizens on the need to be vigilant and conscious of their environment", explanation:"Public awareness is key to crime prevention."},
+        {question:"Below are security agencies involved in fighting and preventing crimes in the country EXCEPT", options:["Nigeria police","The Armed Forces","Civil Defence Corps","Nigeria Immigration"], correct:"Nigeria Immigration", explanation:"Immigration controls borders but is not primary crime-fighting agency."},
+        {question:"Which of these is NOT a way of reporting crime?", options:["Online report","Report to pastor","Anonymous report","Media station report"], correct:"Report to pastor", explanation:"Pastors are not law enforcement; crimes should be reported to police."},
+        {question:"The following include appropriate response to common crimes EXCEPT", options:["crime must be investigated immediately","theories must be generated from the crime by the investigator","the crime scene should be ignored","the full extent of a crime must be documented"], correct:"the crime scene should be ignored", explanation:"Crime scenes must be preserved and examined."},
+        {question:"A crash involving a car, train, plane or other vehicle is called", options:["accident","drowning","plane crash","death by crash"], correct:"accident", explanation:"Accidents are unintended harmful events."},
+        {question:"Ways by which unpleasant happenings in the society are being given adequate care is known as", options:["security care","happenings controlling","adequate caring","emergency management"], correct:"emergency management", explanation:"Emergency management addresses crises."},
+        {question:"Accident, fire, drowning, food poisoning are all types of", options:["happenings in the world","emergency management situation","security measures","crimes in the country"], correct:"emergency management situation", explanation:"These require emergency response."},
+        {question:"Victims of road accidents before taking them to the nearest hospital for proper care may be", options:["cured using herbs","arrested and questioned","given first aid","beaten to confess their crimes"], correct:"given first aid", explanation:"First aid stabilizes victims before hospital care."}
+      ];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with RNVE topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
