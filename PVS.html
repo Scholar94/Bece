@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - PVS Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">PVS</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">PRE VOCATIONAL STUDIES</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any RNVE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from PVS 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+          {
+    "question": "One of these is the simple scientific experiment and test for textile fibres.",
+    "options": ["Intensity test", "Space test", "Accessories test", "Strength test"],
+    "correct": "Strength test",
+    "explanation": "Strength test measures the tensile strength of textile fibres, a basic scientific test."
+  },
+  {
+    "question": "The following are parts of a sewing machine except",
+    "options": ["needle clamp", "facing", "spool pin", "Balance wheel"],
+    "correct": "facing",
+    "explanation": "Facing is a garment sewing technique, not a mechanical part of a sewing machine."
+  },
+  {
+    "question": "_____ prevents children from contracting diseases.",
+    "options": ["Immunization", "Treatment", "Love", "Exercise"],
+    "correct": "Immunization",
+    "explanation": "Immunization (vaccination) builds immunity against infectious diseases."
+  },
+  {
+    "question": "The loss of blood from the womb through female genital organ is known as",
+    "options": ["mestabation", "mestration", "bleeding", "menstruation"],
+    "correct": "menstruation",
+    "explanation": "Menstruation is the monthly shedding of the uterine lining."
+  },
+  {
+    "question": "All these are perishable food items except",
+    "options": ["fish", "milk", "beans", "eggs"],
+    "correct": "beans",
+    "explanation": "Dried beans are non-perishable when stored properly, unlike fish, milk, and eggs."
+  },
+  {
+    "question": "Home Economics teaches you how to be",
+    "options": ["wasteful", "creative", "stingy", "dancing"],
+    "correct": "creative",
+    "explanation": "Home Economics fosters creativity in cooking, sewing, home management, and budgeting."
+  },
+  {
+    "question": "The end product of protein digestion is known as",
+    "options": ["amino acid", "glucose", "fatty acid", "protease"],
+    "correct": "amino acid",
+    "explanation": "Proteins are broken down into amino acids during digestion."
+  },
+  {
+    "question": "_____ is the inner layer of the skin.",
+    "options": ["Sweat pore", "Tinning", "Epidermis", "Dermis"],
+    "correct": "Dermis",
+    "explanation": "The dermis lies beneath the epidermis and contains blood vessels, nerves, and glands."
+  },
+  {
+    "question": "Seam finishes prevent the raw edges of clothing from",
+    "options": ["wrinkling", "sagging", "tearing", "fraying"],
+    "correct": "fraying",
+    "explanation": "Seam finishes stop fabric edges from unraveling (fraying)."
+  },
+  {
+    "question": "White colour signifies",
+    "options": ["love", "danger", "peace", "royality"],
+    "correct": "peace",
+    "explanation": "White is commonly associated with peace, purity, and cleanliness."
+  },
+  {
+    "question": "Protein can be chemically made up of the following except one",
+    "options": ["Carbon", "Starch", "Nitrogen", "Sulphur"],
+    "correct": "Starch",
+    "explanation": "Starch is a carbohydrate, not a component of proteins."
+  },
+  {
+    "question": "The workshop of the home is the",
+    "options": ["kitchen", "toilet", "bathroom", "bedroom"],
+    "correct": "kitchen",
+    "explanation": "The kitchen is where food preparation and many household activities occur."
+  },
+  {
+    "question": "Food is a _____ need of man.",
+    "options": ["tertiary", "secondary", "proper", "primary"],
+    "correct": "primary",
+    "explanation": "Food is a basic (primary) necessity for survival."
+  },
+  {
+    "question": "The planning for the future expenditure of a family is called household",
+    "options": ["plan", "income", "budget", "expenses"],
+    "correct": "budget",
+    "explanation": "A household budget estimates future income and expenses."
+  },
+  {
+    "question": "Freedom and benefits that are guaranteed to people by law are called",
+    "options": ["bills", "rights", "responsibility", "needs"],
+    "correct": "rights",
+    "explanation": "Rights are legal entitlements protected by law."
+  },
+  {
+    "question": "The first set of teeth grown by a baby is known as",
+    "options": ["milk teeth", "permanent teeth", "premolar", "incisors"],
+    "correct": "milk teeth",
+    "explanation": "Milk teeth (deciduous teeth) appear in infancy and are later replaced."
+  },
+  {
+    "question": "_____ is a sense organ in the body.",
+    "options": ["Nail", "Heart", "Urine", "Nose"],
+    "correct": "Nose",
+    "explanation": "The nose is responsible for the sense of smell."
+  },
+  {
+    "question": "_____ is used for protecting the middle finger when sewing.",
+    "options": ["Pins", "Needle", "Thimble", "Tape"],
+    "correct": "Thimble",
+    "explanation": "A thimble protects the finger from needle pricks."
+  },
+  {
+    "question": "Which of the following is not a career in Home Economics?",
+    "options": ["Catering", "Agronomy", "Nutrition", "Home Management"],
+    "correct": "Agronomy",
+    "explanation": "Agronomy is the science of soil and crop production, part of Agricultural Science."
+  },
+  {
+    "question": "_____ are preparations designed to make the skin or hair beautiful or correct one's appearances.",
+    "options": ["Cosmetics", "Lime", "Fuel", "Nutrient"],
+    "correct": "Cosmetics",
+    "explanation": "Cosmetics are applied to enhance beauty or alter appearance."
+  },
+  {
+    "question": "Which of the following is not a sewing machine part?",
+    "options": ["Shuttle case", "Harrow", "Spool pin", "Feed plate"],
+    "correct": "Harrow",
+    "explanation": "A harrow is an agricultural tool, not a sewing machine component."
+  },
+  {
+    "question": "_____ helps the body to fight against diseases.",
+    "options": ["Minerals", "Carbohydrates", "Vitamins", "Proteins"],
+    "correct": "Vitamins",
+    "explanation": "Vitamins, especially C and D, support immune function."
+  },
+  {
+    "question": "The following but one are processes in laundry.",
+    "options": ["Sorting", "Ironing", "Spinning", "Mending"],
+    "correct": "Spinning",
+    "explanation": "Spinning is not a standard laundry process; it is part of textile manufacturing."
+  },
+  {
+    "question": "Reading in poor lighting can lead to one of the following.",
+    "options": ["Strain your eyes", "Strain your mind", "Make you tired", "Make you sleep"],
+    "correct": "Strain your eyes",
+    "explanation": "Poor lighting forces eye muscles to work harder, causing eye strain."
+  },
+  {
+    "question": "A dwelling place for a family is the",
+    "options": ["society", "home", "school", "living room"],
+    "correct": "home",
+    "explanation": "A home is where a family lives together."
+  },
+  {
+    "question": "Clothes should be washed before they become too",
+    "options": ["expensive", "ironed", "dirty", "clean"],
+    "correct": "dirty",
+    "explanation": "Washing before heavy soiling prevents stains from setting."
+  },
+  {
+    "question": "Your brothers and sisters are your",
+    "options": ["relations", "family", "anities", "siblings"],
+    "correct": "siblings",
+    "explanation": "Siblings share at least one parent."
+  },
+  {
+    "question": "Which of the following builds the muscles?",
+    "options": ["Stretching exercises", "Strengthening Exercises", "Sprinting", "Jumping"],
+    "correct": "Strengthening Exercises",
+    "explanation": "Strengthening exercises like weightlifting increase muscle mass and strength."
+  },
+  {
+    "question": "The development of a child starts from the _____ and spreads all over the body.",
+    "options": ["legs", "head", "hands", "eyes"],
+    "correct": "head",
+    "explanation": "Child development follows a cephalocaudal (head-to-toe) pattern."
+  },
+  {
+    "question": "Home Economics prepares students for both family and _____ living.",
+    "options": ["school", "church", "mosque", "societal"],
+    "correct": "societal",
+    "explanation": "Home Economics equips students for family life and participation in society."
+  },
+  {
+    "question": "Vegetative parts of a plant used during asexual propagation include the following except",
+    "options": ["stem", "leaves", "seeds", "root"],
+    "correct": "seeds",
+    "explanation": "Seeds are used for sexual propagation, not vegetative (asexual)."
+  },
+  {
+    "question": "_____ are animals raised by farmers.",
+    "options": ["Wild animals", "Domestic animals", "Imported animals", "Location animals"],
+    "correct": "Domestic animals",
+    "explanation": "Domestic animals are tamed and raised for food, labour, or products."
+  },
+  {
+    "question": "The process of reducing the number of plants per stand of crops is known as",
+    "options": ["thinning", "supplying", "wearing", "transplanting"],
+    "correct": "thinning",
+    "explanation": "Thinning removes excess seedlings to give remaining plants space to grow."
+  },
+  {
+    "question": "Which of the following cattle diseases is caused by nutritional disorder?",
+    "options": ["Brucellosis", "Bloat", "Mastitis", "Rinderpest"],
+    "correct": "Bloat",
+    "explanation": "Bloat results from excessive gas buildup, often due to diet."
+  },
+  {
+    "question": "Which of the following will supply calcium necessary for egg shell formation in poultry?",
+    "options": ["Blood meal", "Rice brain", "Bone meal", "Groundnut cake"],
+    "correct": "Bone meal",
+    "explanation": "Bone meal is rich in calcium and phosphorus, essential for eggshells."
+  },
+  {
+    "question": "Which of these is a salt water body?",
+    "options": ["Spring", "Pond", "Lake", "Ocean"],
+    "correct": "Ocean",
+    "explanation": "Oceans are large saltwater bodies; springs, ponds, and lakes are typically freshwater."
+  },
+  {
+    "question": "Which of the following is not a dicotyledonous plant?",
+    "options": ["Mango", "Kolanut", "Maize", "Groundnut"],
+    "correct": "Maize",
+    "explanation": "Maize (corn) is a monocot; mango, kolanut, and groundnut are dicots."
+  },
+  {
+    "question": "A castrated pig is called",
+    "options": ["Ox", "Hog", "Capon", "Bull"],
+    "correct": "Hog",
+    "explanation": "A castrated male pig is a barrow or hog."
+  },
+  {
+    "question": "The artificial method of supplying water to growing plants during the dry season is termed",
+    "options": ["irrigation", "drainage", "supply", "stocking"],
+    "correct": "irrigation",
+    "explanation": "Irrigation artificially provides water to crops."
+  },
+  {
+    "question": "Soil nutrients can be conserved through one of the following methods.",
+    "options": ["Leaching", "Mulching", "Plant uptake", "Bush burning"],
+    "correct": "Mulching",
+    "explanation": "Mulching reduces erosion and adds organic matter, conserving nutrients."
+  },
+  {
+    "question": "_____ and _____ are examples of animal fibre.",
+    "options": ["Cotton and Linen", "Wool and cotton", "Silk and wool", "Silk and rayon"],
+    "correct": "Silk and wool",
+    "explanation": "Silk (from silkworms) and wool (from sheep) are animal fibres."
+  },
+  {
+    "question": "A detailed account of various activities carried out on the farm on a regular basis is known as",
+    "options": ["farm accounts", "farm Book", "farm diary", "farm records"],
+    "correct": "farm diary",
+    "explanation": "A farm diary is a daily log of activities and observations."
+  },
+  {
+    "question": "Advertisements media for goods and services include the following except",
+    "options": ["Supermarket", "Radio", "Television", "Internet"],
+    "correct": "Supermarket",
+    "explanation": "A supermarket is a retail outlet, not an advertising medium."
+  },
+  {
+    "question": "The following are types of erosion except",
+    "options": ["Rill Erosion", "Farm erosion", "Gulley erosion", "Finger erosion"],
+    "correct": "Farm erosion",
+    "explanation": "Farm erosion is not a recognized type; types include rill, gully, sheet, and splash erosion."
+  },
+  {
+    "question": "When a farmer produces on a large scale to meet the needs of the community and nation, he is said to be practicing",
+    "options": ["subsistence agriculture", "plantation agriculture", "commercial Agriculture", "none of the above"],
+    "correct": "commercial Agriculture",
+    "explanation": "Commercial agriculture is large-scale production for sale, not just family needs."
+  },
+  {
+    "question": "Root knot disease of tomato is caused by",
+    "options": ["Bacteria", "Nematodes", "Fungi", "Viruses"],
+    "correct": "Nematodes",
+    "explanation": "Root knot disease is caused by root-knot nematodes (Meloidogyne spp.)."
+  },
+  {
+    "question": "The following crops require nursery practices for better growth except",
+    "options": ["Rice", "Tomato", "Oil Palm", "Cocoa"],
+    "correct": "Rice",
+    "explanation": "Rice is often direct-seeded; tree crops like oil palm and cocoa require nursery stages."
+  },
+  {
+    "question": "The channels of distribution of agricultural produce include the followings except",
+    "options": ["producer", "farm", "wholesaler", "local market"],
+    "correct": "farm",
+    "explanation": "The farm is the production point, not a distribution channel."
+  },
+  {
+    "question": "The addition of lime to the soil is meant to correct",
+    "options": ["soil alkalinity", "soil neutrality", "soil acidity", "poor water retention"],
+    "correct": "soil acidity",
+    "explanation": "Lime raises soil pH, reducing acidity."
+  },
+  {
+    "question": "_____ is the act of growing crops on the same piece of land year after year.",
+    "options": ["mixed cropping", "mixed farming", "mono cropping", "continuous cropping"],
+    "correct": "continuous cropping",
+    "explanation": "Continuous cropping grows crops on the same land without rotation."
+  },
+  {
+    "question": "_____ is the process of transference of the pollen grains from the anther of a flower to the stigma of a flower in plants.",
+    "options": ["Photosynthesis", "Pollination", "Pollution", "Fertilization"],
+    "correct": "Pollination",
+    "explanation": "Pollination is the transfer of pollen from anther to stigma."
+  },
+  {
+    "question": "Drainage is necessary on the farm land to",
+    "options": ["remove excess water from the soil.", "keep the environment cool.", "prevent excess drinking by the animals on the farm.", "provide power in the farm."],
+    "correct": "remove excess water from the soil.",
+    "explanation": "Drainage prevents waterlogging and improves soil aeration."
+  },
+  {
+    "question": "_____ are the different methods adopted by farmers in planting their crops on the farm.",
+    "options": ["Mulching", "Plantation system", "Cropping System", "Ranching system"],
+    "correct": "Cropping System",
+    "explanation": "Cropping systems include patterns like monocropping, intercropping, and rotation."
+  },
+  {
+    "question": "The followings are types of soils except",
+    "options": ["sandy", "silty", "loamy", "rocky"],
+    "correct": "rocky",
+    "explanation": "Rocky is not a soil textural class; sand, silt, clay, and loam are."
+  },
+  {
+    "question": "The following are the effects of diseases on farm animals except",
+    "options": ["parasitism", "irritation", "loss of weight", "loss of appetite"],
+    "correct": "parasitism",
+    "explanation": "Parasitism is a cause of disease, not an effect."
+  },
+  {
+    "question": "A non-settled form of farming system in which the farmer grazes his animals on the move is known as",
+    "options": ["animal rearing", "nomadic farming", "pastoral farming", "ranching"],
+    "correct": "nomadic farming",
+    "explanation": "Nomadic farming involves moving herds in search of pasture and water."
+  },
+  {
+    "question": "_____ is a tool used for making heaps and ridges.",
+    "options": ["Cutlass", "Rake", "Hoe", "Axe"],
+    "correct": "Hoe",
+    "explanation": "A hoe is used for shaping soil, making heaps, and ridges."
+  },
+  {
+    "question": "Animals with the simple stomach are called",
+    "options": ["ruminants", "non-ruminants", "polygastrates", "mammals"],
+    "correct": "non-ruminants",
+    "explanation": "Non-ruminants (monogastrics) have a single-chambered stomach."
+  },
+  {
+    "question": "_____ is a bacterial disease that affects the udder of pigs and cattle.",
+    "options": ["Brucellosis", "Mastitis", "Anthrax", "Coccidiosis"],
+    "correct": "Mastitis",
+    "explanation": "Mastitis is inflammation of the udder, often caused by bacteria."
+  },
+  {
+    "question": "Two crops that can be propagated by stem cutting are",
+    "options": ["rice and cowpea", "coffee and cocoa", "sugarcane and cassava", "oil palm and plantain"],
+    "correct": "sugarcane and cassava",
+    "explanation": "Sugarcane and cassava are commonly propagated by stem cuttings."
+  },
+  {
+    "question": "_____ is the act of planting of tree seedlings to establish a forest.",
+    "options": ["Deforestation", "Exploitation", "Afforestation", "Forestry"],
+    "correct": "Afforestation",
+    "explanation": "Afforestation is establishing a forest by planting trees on land that was not recently forested."
+  },
+  {
+    "question": "One of the following is not a method of preserving farm produce.",
+    "options": ["Drying", "Hulling", "Smoking", "Refrigeration"],
+    "correct": "Hulling",
+    "explanation": "Hulling is a processing step (removing husks), not a preservation method."
+  },
+  {
+    "question": "The study of the culture and rearing of fishes and other aquatic animals in a body of water is known as",
+    "options": ["aquaculture", "apiculture", "silviculture", "heliculture"],
+    "correct": "aquaculture",
+    "explanation": "Aquaculture is the farming of fish and other aquatic organisms."
+  },
+  {
+    "question": "The two general methods of propagating agricultural crops are",
+    "options": ["sexual and vegetable", "sexual and mature", "vegetable and asexual", "sexual and asexual"],
+    "correct": "sexual and asexual",
+    "explanation": "Propagation is either sexual (seeds) or asexual (vegetative parts)."
+  },
+  {
+    "question": "One of the following living beings started or discovered agriculture by chance",
+    "options": ["Geologists", "Archeologists", "Early man", "Astrologers"],
+    "correct": "Early man",
+    "explanation": "Early humans discovered agriculture accidentally through observation of seed germination."
+  },
+  {
+    "question": "_____ is a reproductive organ of a flowering plant.",
+    "options": ["Stem", "Flower", "Leaves", "Roots"],
+    "correct": "Flower",
+    "explanation": "The flower contains the reproductive structures (stamens and carpels)."
+  },
+  {
+    "question": "A trained agriculturist who carries the results of research findings to local farmers is",
+    "options": ["extension officer", "farm manager", "agricultural officer", "research officer"],
+    "correct": "extension officer",
+    "explanation": "Extension officers bridge the gap between agricultural research and farmers."
+  },
+  {
+    "question": "The science of production and sale of ornamental plants is termed",
+    "options": ["floriculture", "silviculture", "heliculture", "agriculture"],
+    "correct": "floriculture",
+    "explanation": "Floriculture is the cultivation of flowers and ornamental plants."
+  },
+  {
+    "question": "Crops grown specifically to feed animals are called",
+    "options": ["weed", "forage", "cereals", "grass"],
+    "correct": "forage",
+    "explanation": "Forage crops (e.g., alfalfa, clover) are grown for livestock feed."
+  },
+  {
+    "question": "Plants nutrients can be lost from the soil through",
+    "options": ["irrigation", "cover cropping", "bush burning", "fallowing"],
+    "correct": "bush burning",
+    "explanation": "Bush burning destroys organic matter and volatilizes nutrients like nitrogen."
+  },
+  {
+    "question": "The disease transmitted to animals in the rainforest by the tse-tse fly is",
+    "options": ["coccidiosis", "mastitis", "new castle", "trypanosomiasis"],
+    "correct": "trypanosomiasis",
+    "explanation": "Tsetse flies transmit Trypanosoma parasites, causing trypanosomiasis (sleeping sickness) in animals."
+  },
+  {
+    "question": "The percentage (%) by the volume of water in the soil composition is",
+    "options": ["35", "55", "45", "25"],
+    "correct": "25",
+    "explanation": "Ideal soil composition is about 25% water, 25% air, 45% mineral matter, and 5% organic matter."
+  },
+  {
+    "question": "_____ best describes the particle sizes of the soil.",
+    "options": ["Soil pH", "Soil profile", "Soil texture", "Soil structure"],
+    "correct": "Soil texture",
+    "explanation": "Soil texture refers to the proportions of sand, silt, and clay particles."
+  },
+  {
+    "question": "The lateral lines on the body of the fish enables it to",
+    "options": ["move faster", "detect vibration", "balance in water", "turn around in water"],
+    "correct": "detect vibration",
+    "explanation": "The lateral line system detects water movements and vibrations."
+  },
+  {
+    "question": "A farming practice which involves the movement from one farm land to another when nutrient levels of the soil is discovered to be low is termed",
+    "options": ["shifting cultivation", "permanent farming", "crop rotation", "continuous cropping"],
+    "correct": "shifting cultivation",
+    "explanation": "Shifting cultivation involves clearing, farming, and abandoning land when fertility declines."
+  },
+  {
+    "question": "A market where stock, shares and securities are bought and sold is referred to as",
+    "options": ["local market", "bond market", "foreign exchange market", "stock exchange"],
+    "correct": "stock exchange",
+    "explanation": "A stock exchange is a marketplace for trading securities."
+  },
+  {
+    "question": "A record in which all day to day activities on the farm business are recorded is termed",
+    "options": ["farm record", "farm inventory", "farm diary", "farm accounts"],
+    "correct": "farm diary",
+    "explanation": "A farm diary is a daily log of activities and observations."
+  },
+  {
+    "question": "Feeding requirements of farm animals depend on the following EXCEPT",
+    "options": ["age of the animal", "animal digestive system", "purpose of production", "mortality rate of the animals"],
+    "correct": "mortality rate of the animals",
+    "explanation": "Mortality rate does not determine feeding requirements; age, digestion, and production purpose do."
+  },
+  {
+    "question": "The following are the system of rearing livestock EXCEPT",
+    "options": ["housing system", "intensive system", "extensive system", "semi-intensive system"],
+    "correct": "housing system",
+    "explanation": "Housing is a facility, not a rearing system. Rearing systems include intensive, extensive, and semi-intensive."
+  },
+  {
+    "question": "All activities carried out on the farm land before the actual planting is done is known as",
+    "options": ["planting operations", "post-planting operations", "pre-planting operations", "none of the above"],
+    "correct": "pre-planting operations",
+    "explanation": "Pre-planting operations include clearing, ploughing, harrowing, and ridging."
+  },
+  {
+    "question": "Which of these is not a simple farm tool?",
+    "options": ["Secateurs", "Digger", "Hoe", "Garden fork"],
+    "correct": "Digger",
+    "explanation": "A digger is typically a large machine; secateurs, hoe, and garden fork are simple hand tools."
+  },
+  {
+    "question": "Infectious diseases can be transmitted through the following EXCEPT",
+    "options": ["air", "water", "dust", "wind"],
+    "correct": "dust",
+    "explanation": "Dust can carry pathogens, but wind is a better answer here; however, dust is not a primary transmission mode like air, water, or wind."
+  },
+  {
+    "question": "The followings are farm storage structures EXCEPT",
+    "options": ["silos", "cribs", "barn", "battery cage"],
+    "correct": "battery cage",
+    "explanation": "A battery cage is for housing poultry, not for crop storage."
+  },
+  {
+    "question": "A farm structure where farm animals are slaughtered and processed for consumption is called",
+    "options": ["abattoir", "ranch", "pen", "cold room"],
+    "correct": "abattoir",
+    "explanation": "An abattoir (slaughterhouse) is where animals are slaughtered for meat."
+  },
+  {
+    "question": "The types of forest are the following, EXCEPT",
+    "options": ["Rain forest", "Derived forest", "Mangrove forest", "none of the above"],
+    "correct": "none of the above",
+    "explanation": "All three are valid forest types; therefore 'none of the above' is correct."
+  },
+  {
+    "question": "One of the following is not an agricultural raw material",
+    "options": ["cocoa", "rubber", "N.P.K", "cotton"],
+    "correct": "N.P.K",
+    "explanation": "N.P.K is fertilizer (an input), not a raw material from agriculture."
+  },
+  {
+    "question": "In the preparation of compost manure, a starter is required to",
+    "options": ["keep the compost heap moist for easy decomposition.", "maintain a constant temperature in the compost heap.", "regulate the decomposition of the compost materials.", "introduce decaying organisms into the compost heap."],
+    "correct": "introduce decaying organisms into the compost heap.",
+    "explanation": "A starter (e.g., old compost, soil) introduces microorganisms that accelerate decomposition."
+  },
+  {
+    "question": "A farm implement with a long wooden/metal handle having a metal head with four prongs is called",
+    "options": ["garden fork", "hand fork", "shovel", "rake"],
+    "correct": "garden fork",
+    "explanation": "A garden fork has four prongs and is used for loosening soil."
+  },
+  {
+    "question": "Pulp is a material used as a raw material in one of the following industries.",
+    "options": ["Textile", "Rubber", "Paper", "Tyre"],
+    "correct": "Paper",
+    "explanation": "Wood pulp is the primary raw material for paper production."
+  },
+  {
+    "question": "Fruits and vegetables are good sources of _____ in a food.",
+    "options": ["Vitamin B", "Vitamin A", "Vitamin D", "Vitamin C"],
+    "correct": "Vitamin C",
+    "explanation": "Fruits and vegetables are rich in vitamin C (ascorbic acid)."
+  },
+  {
+    "question": "The vitamins that helps in the healing of wounds is called",
+    "options": ["Vitamin D", "Vitamin A", "Vitamin B", "Vitamin C"],
+    "correct": "Vitamin C",
+    "explanation": "Vitamin C is essential for collagen synthesis and wound healing."
+  },
+  {
+    "question": "STI is an abbreviation for",
+    "options": ["Sexually transformed infections.", "Sexually transmitted infusion.", "Sexually transmitted infections.", "Sexually transformed injections."],
+    "correct": "Sexually transmitted infections.",
+    "explanation": "STI stands for Sexually Transmitted Infections."
+  },
+  {
+    "question": "Basic needs are important for",
+    "options": ["recreation", "survival", "status", "show"],
+    "correct": "survival",
+    "explanation": "Basic needs (food, water, shelter, clothing) are essential for survival."
+  },
+  {
+    "question": "Which of the following should be removed from clothing before storage?",
+    "options": ["Broaches and pins", "Zips", "Collars and cuffs", "Sleeves and collars"],
+    "correct": "Broaches and pins",
+    "explanation": "Brooches and pins can rust, snag, or damage fabric if left attached during storage."
+  },
+  {
+    "question": "Rice, Yam, Millet are major sources of _____ in a diet.",
+    "options": ["salt", "vitamins", "carbohydrates", "protein"],
+    "correct": "carbohydrates",
+    "explanation": "These are starchy staple foods rich in carbohydrates."
+  },
+  {
+    "question": "One of the following is very common in the rural areas",
+    "options": ["water closet", "bath tap", "shower bathroom", "pit latrines"],
+    "correct": "pit latrines",
+    "explanation": "Pit latrines are common in rural areas with limited sanitation infrastructure."
+  },
+  {
+    "question": "The process of caring for hands and the fingernails is called",
+    "options": ["Hand care", "Pedicure", "Manicure", "Nail care"],
+    "correct": "Manicure",
+    "explanation": "Manicure is cosmetic treatment of hands and fingernails."
+  },
+  {
+    "question": "The body outline or shape of a person is her",
+    "options": ["body", "figure", "outfit", "dress"],
+    "correct": "figure",
+    "explanation": "Figure refers to the shape or outline of a person's body."
+  },
+  {
+    "question": "Red, yellow and blue are",
+    "options": ["primary", "secondary", "kindergarten", "tertiary"],
+    "correct": "primary",
+    "explanation": "Red, yellow, and blue are the primary colours in art and design."
+  },
+  {
+    "question": "Which of the following is not a wise buying practice?",
+    "options": ["Comparing prices in different shops.", "Making impulse shopping.", "Keep the shopping list.", "Making a shopping list."],
+    "correct": "Making impulse shopping.",
+    "explanation": "Impulse shopping leads to unplanned purchases and overspending."
+  },
+  {
+    "question": "The subject that helps a Home Economist to understand the effect of heat on food is",
+    "options": ["biology", "chemistry", "geography", "mathematics"],
+    "correct": "chemistry",
+    "explanation": "Chemistry explains heat-induced changes like denaturation, caramelization, and Maillard reaction."
+  },
+  {
+    "question": "Boys generally reach their puberty stage at the age of",
+    "options": ["14", "16", "13", "none of the above"],
+    "correct": "14",
+    "explanation": "Boys typically reach puberty between ages 9-14, with average around 14."
+  },
+  {
+    "question": "The process where a person prescribes a drug for himself is called self",
+    "options": ["mentholatum", "medication", "meritation", "meditation"],
+    "correct": "medication",
+    "explanation": "Self-medication is using drugs without professional prescription."
+  },
+  {
+    "question": "_____ is a situation that marks turning points when things cease to go on as usual in the family.",
+    "options": ["Solution", "Family", "Crisis", "Changes"],
+    "correct": "Crisis",
+    "explanation": "A family crisis disrupts normal functioning and requires adaptation."
+  },
+  {
+    "question": "The fabrics or materials used for decorating doors and windows are",
+    "options": ["linen", "cylinder", "gas", "fluffy"],
+    "correct": "linen",
+    "explanation": "Linen and other drapery fabrics are used for curtains and window treatments."
+  },
+  {
+    "question": "All towels should be soft and",
+    "options": ["absorbent", "wet", "dry", "fluffy"],
+    "correct": "absorbent",
+    "explanation": "Towels must be absorbent to effectively dry the body."
+  },
+  {
+    "question": "Which of the following is a deficiency disease?",
+    "options": ["Yam", "Kwashiorkor", "Malaria", "Aids"],
+    "correct": "Kwashiorkor",
+    "explanation": "Kwashiorkor is protein deficiency disease."
+  },
+  {
+    "question": "_____ means preventing harmful bacteria from growing in foods.",
+    "options": ["Food rot", "Food harmful", "Food hygiene", "Food spoilage"],
+    "correct": "Food hygiene",
+    "explanation": "Food hygiene practices prevent bacterial growth and contamination."
+  },
+  {
+    "question": "Cooking food in hot oil is termed",
+    "options": ["boiling", "dreading", "baking", "frying"],
+    "correct": "frying",
+    "explanation": "Frying cooks food in hot oil or fat."
+  },
+  {
+    "question": "_____ is a process of mending clothing articles.",
+    "options": ["Garment sorting", "Darning", "Garment repair", "L shape"],
+    "correct": "Darning",
+    "explanation": "Darning is a sewing technique for repairing holes or worn areas."
+  },
+  {
+    "question": "Household linen is a term used collectively to include a variety of _____ used in the home.",
+    "options": ["materials", "textile materials", "cakes", "adding"],
+    "correct": "textile materials",
+    "explanation": "Household linen includes sheets, towels, tablecloths, and other fabric items."
+  },
+  {
+    "question": "Family value system helps to control",
+    "options": ["behaviour", "obesity", "balance", "like"],
+    "correct": "behaviour",
+    "explanation": "Family values guide and regulate the behaviour of family members."
+  },
+  {
+    "question": "A physical or mental dependence on continued use of drugs is called",
+    "options": ["medication", "addiction", "therapy", "constipation"],
+    "correct": "addiction",
+    "explanation": "Addiction is compulsive drug use despite harmful consequences."
+  },
+  {
+    "question": "_____ can destroy maize or beans in storage.",
+    "options": ["Heat", "Sun", "Weevils", "Ants"],
+    "correct": "Weevils",
+    "explanation": "Weevils are storage pests that bore into and destroy grains and beans."
+  },
+  {
+    "question": "A thread made by twisting or spinning fibres is called",
+    "options": ["fabrics", "fibre", "warp", "yarn"],
+    "correct": "yarn",
+    "explanation": "Yarn is a continuous strand of twisted fibres used for knitting, weaving, or sewing."
+  },
+  {
+    "question": "To prevent unwanted pregnancy, you must totally _____ from sex.",
+    "options": ["abstain", "be involve", "be interested", "be aware"],
+    "correct": "abstain",
+    "explanation": "Abstinence is the only 100% effective way to prevent pregnancy."
+  },
+  {
+    "question": "Substances which aid the removal of dirt from fabrics are called laundry",
+    "options": ["support", "agent", "buckets", "soap"],
+    "correct": "agent",
+    "explanation": "Laundry agents include detergents, soaps, and stain removers."
+  },
+  {
+    "question": "Pounded yam, vegetable soup and meat stew can be eaten as",
+    "options": ["breakfast", "supper", "lunch", "in between meal"],
+    "correct": "lunch",
+    "explanation": "This is a typical Nigerian lunch or dinner main meal."
+  },
+  {
+    "question": "The basic unit of the society is the",
+    "options": ["uncle", "mother", "father", "family"],
+    "correct": "family",
+    "explanation": "The family is the smallest and most fundamental social unit."
+  },
+  {
+    "question": "Two crops that can be propagated by stem cutting are",
+    "options": ["rice and cowpea", "coffee and cocoa", "sugar cane and cassava", "oil palm and plantain"],
+    "correct": "sugar cane and cassava",
+    "explanation": "Sugarcane and cassava are commonly propagated by stem cuttings."
+  },
+  {
+    "question": "_____ is a bacteria disease that affects the udder (mammary gland) of the pigs or cattle.",
+    "options": ["Brucellosis", "Mastitis", "Anthrax", "Rhinderpest"],
+    "correct": "Mastitis",
+    "explanation": "Mastitis is inflammation of the udder, usually bacterial."
+  },
+  {
+    "question": "_____ best describes the soil particle sizes in a soil sample.",
+    "options": ["Soil texture", "Soil structure", "Soil air", "Soil profile"],
+    "correct": "Soil texture",
+    "explanation": "Soil texture refers to the proportion of sand, silt, and clay particles."
+  },
+  {
+    "question": "Root knot disease of tomato is caused by",
+    "options": ["bacteria", "fungi", "viruses", "nematodes"],
+    "correct": "nematodes",
+    "explanation": "Root-knot nematodes (Meloidogyne spp.) cause galls on roots."
+  },
+  {
+    "question": "One of the following soil types is the best for agriculture.",
+    "options": ["Loamy", "Sandy", "Clayey", "None of the above"],
+    "correct": "Loamy",
+    "explanation": "Loamy soil has balanced sand, silt, and clay, ideal for most crops."
+  },
+  {
+    "question": "The following crops required nursery practices for better growth except",
+    "options": ["tomato", "citrus", "rice", "cocoa"],
+    "correct": "rice",
+    "explanation": "Rice can be direct-seeded; tree crops like citrus and cocoa require nurseries."
+  },
+  {
+    "question": "A market where stocks, shares and other securities are bought and sold is referred to as",
+    "options": ["local market", "foreign exchange market", "bond market", "stock exchange market"],
+    "correct": "stock exchange market",
+    "explanation": "A stock exchange is a marketplace for trading securities."
+  },
+  {
+    "question": "The channel of distributing agricultural produce include the following except",
+    "options": ["producer", "farm", "wholesaler", "local market"],
+    "correct": "farm",
+    "explanation": "The farm is the production point, not a distribution channel."
+  },
+  {
+    "question": "The following, except one, are methods of controlling erosion.",
+    "options": ["Deforestation", "Afforestation", "Terracing", "Mulching"],
+    "correct": "Deforestation",
+    "explanation": "Deforestation increases erosion, while afforestation, terracing, and mulching control it."
+  },
+  {
+    "question": "The external manifestation of disease in an organism is known as",
+    "options": ["vector", "transmission", "symptom", "pathogen"],
+    "correct": "symptom",
+    "explanation": "A symptom is an observable indication of disease."
+  },
+  {
+    "question": "A non-settled form of farming system in which the farmer grazes his animals is known as",
+    "options": ["animal rearing", "ley farming", "pastoral farming", "nomadic farming"],
+    "correct": "nomadic farming",
+    "explanation": "Nomadic farming involves moving herds in search of pasture."
+  },
+  {
+    "question": "Pulp is a raw material used in one of the following agro allied industries",
+    "options": ["textile", "tyre", "paper", "rubber"],
+    "correct": "paper",
+    "explanation": "Wood pulp is the primary raw material for paper production."
+  },
+  {
+    "question": "_____ is the act of giving birth to young ones in farm animals.",
+    "options": ["Parturition", "Ovulation", "Gestation", "Fertilization"],
+    "correct": "Parturition",
+    "explanation": "Parturition is the process of giving birth."
+  },
+  {
+    "question": "The minerals which are present in the shell of the eggs of poultry when added to livestock feeds helps the animals to",
+    "options": ["have access to balanced diet", "develop their bones", "build up muscles", "increase body mineral"],
+    "correct": "develop their bones",
+    "explanation": "Calcium from eggshells is essential for bone development."
+  },
+  {
+    "question": "_____ is the process of transference of pollen grains from the anther to the stigma of a flower in plants.",
+    "options": ["Photosynthesis", "Pollutant", "Pollination", "Fertilization"],
+    "correct": "Pollination",
+    "explanation": "Pollination is the transfer of pollen from anther to stigma."
+  },
+  {
+    "question": "_____ is the act of planting of tree seedlings to establish a forest.",
+    "options": ["Exploitation", "Afforestation", "Deforestation", "Silviculture"],
+    "correct": "Afforestation",
+    "explanation": "Afforestation is establishing a forest by planting trees."
+  },
+  {
+    "question": "Feeding requirements in farm animals depend on the following factors except",
+    "options": ["high mortality rate", "age of the animal", "purpose of production", "health status of the animal"],
+    "correct": "high mortality rate",
+    "explanation": "Mortality rate does not determine feeding requirements."
+  },
+  {
+    "question": "When plant materials are dried, baked and used for feeding of livestock in dry season, it is referred to as",
+    "options": ["silage", "hay", "straw", "forage"],
+    "correct": "hay",
+    "explanation": "Hay is dried grass or legumes used as animal feed."
+  },
+  {
+    "question": "Which of the following crops is not grown in the rain forest zones?",
+    "options": ["Oil palm", "Coconut", "Wheat", "Maize"],
+    "correct": "Wheat",
+    "explanation": "Wheat is a temperate crop, not suited to tropical rainforest zones."
+  },
+  {
+    "question": "The other name for a main root that arises from the base of the stem is called a _____ root.",
+    "options": ["lateral", "tap", "fibrous", "breathing"],
+    "correct": "tap",
+    "explanation": "A tap root is the main root that grows vertically downward."
+  },
+  {
+    "question": "The type of rock formed as a result of cooling and solidification of the molten Magma is referred to as",
+    "options": ["metamorphic rock", "sedimentary rock", "parent rock", "igneous rock"],
+    "correct": "igneous rock",
+    "explanation": "Igneous rocks form from cooled magma or lava."
+  },
+  {
+    "question": "The raw materials used in clothing industry is",
+    "options": ["cotton", "jute", "sisal", "kenaf"],
+    "correct": "cotton",
+    "explanation": "Cotton is the most common natural fibre for clothing."
+  },
+  {
+    "question": "_____ teaches people how to make wise decisions when selecting or buying goods and services.",
+    "options": ["Physical education", "Consumer education", "Customer education", "Adult education"],
+    "correct": "Consumer education",
+    "explanation": "Consumer education teaches wise purchasing and financial decisions."
+  },
+  {
+    "question": "What is the full meaning of STIs?",
+    "options": ["Sexually transmitted infections", "Sexually transformed infections", "Sexually transmitted infusion", "Sexually transformed injections"],
+    "correct": "Sexually transmitted infections",
+    "explanation": "STI stands for Sexually Transmitted Infections."
+  },
+  {
+    "question": "Examples of materials produced from cotton are",
+    "options": ["guigham and twill", "corduroy and damask", "corduroy and damask", "none"],
+    "correct": "guigham and twill",
+    "explanation": "Gingham and twill are cotton fabrics."
+  },
+  {
+    "question": "Cutting food items into long, thin piece is",
+    "options": ["grating", "shredding", "winnowing", "chopping"],
+    "correct": "shredding",
+    "explanation": "Shredding cuts food into long, thin strips."
+  },
+  {
+    "question": "_____ is the way we walk, sit and stand.",
+    "options": ["exercise", "standing", "behaviour", "posture"],
+    "correct": "posture",
+    "explanation": "Posture is the position in which one holds their body."
+  },
+  {
+    "question": "A female who entertains friends at function is called",
+    "options": ["hostess", "host", "waitress", "guest"],
+    "correct": "hostess",
+    "explanation": "A hostess is a female who hosts or entertains guests."
+  },
+  {
+    "question": "One of the disadvantages of early marriage is",
+    "options": ["happy home", "decent accommodation", "disrupted education", "joyful home"],
+    "correct": "disrupted education",
+    "explanation": "Early marriage often interrupts schooling and career development."
+  },
+  {
+    "question": "Cake is often baked in",
+    "options": ["a stove", "an oven", "a refrigerator", "a wood closet"],
+    "correct": "an oven",
+    "explanation": "Cakes are baked in an oven."
+  },
+  {
+    "question": "Another word to describe a wardrobe is",
+    "options": ["store", "box", "bug", "closet"],
+    "correct": "closet",
+    "explanation": "A wardrobe is a closet for storing clothes."
+  },
+  {
+    "question": "Which of the following is not a wise buying practice?",
+    "options": ["Making impulse shopping.", "Comparing prices in different shops.", "Keeping to the shopping list.", "Making a shopping list."],
+    "correct": "Making impulse shopping.",
+    "explanation": "Impulse shopping leads to unplanned spending."
+  },
+  {
+    "question": "The first step in taking decision is",
+    "options": ["acting on the decision", "evaluating the decision made", "identifying the decision to be made", "listing the alternatives"],
+    "correct": "identifying the decision to be made",
+    "explanation": "The first step is recognizing that a decision is needed."
+  },
+  {
+    "question": "Which of the following practices is a tip for food hygiene?",
+    "options": ["Wash food items thoroughly before cooking.", "Trim nails regularly.", "Remove jewelries before cooking.", "Never sneeze over food."],
+    "correct": "Wash food items thoroughly before cooking.",
+    "explanation": "Washing removes dirt, pesticides, and bacteria."
+  },
+  {
+    "question": "Fabrics used for decorating windows and doors are curtains and",
+    "options": ["bed sheets", "bed spread", "blankets", "drapery"],
+    "correct": "drapery",
+    "explanation": "Drapery refers to fabric used for curtains and window coverings."
+  },
+  {
+    "question": "A method of preparing egg dishes made suitable for children is",
+    "options": ["baking", "scrambling", "poaching", "boiling"],
+    "correct": "boiling",
+    "explanation": "Boiled eggs are simple, nutritious, and safe for children."
+  },
+  {
+    "question": "Freedoms and benefits guaranteed to people by law are called",
+    "options": ["rights", "responsibilities", "needs", "bills"],
+    "correct": "rights",
+    "explanation": "Rights are legal entitlements protected by law."
+  },
+  {
+    "question": "Domestic violence occurs often in the",
+    "options": ["community", "home", "market", "office"],
+    "correct": "home",
+    "explanation": "Domestic violence occurs within the home or family setting."
+  },
+  {
+    "question": "It is advised to air clothes before",
+    "options": ["ironing", "washing", "storing", "soaking"],
+    "correct": "storing",
+    "explanation": "Airing removes moisture and odours before storage."
+  },
+  {
+    "question": "Fat are _____ at room temperature.",
+    "options": ["solid", "liquid", "cool", "hot"],
+    "correct": "solid",
+    "explanation": "Fats are solid at room temperature; oils are liquid."
+  },
+  {
+    "question": "The first set of teeth which human beings grow are",
+    "options": ["milk teeth", "permanent teeth", "wisdom teeth", "children teeth"],
+    "correct": "milk teeth",
+    "explanation": "Milk teeth (deciduous teeth) appear first in infancy."
+  },
+  {
+    "question": "The subject that helps a home economics to understand the effect of heat on food is",
+    "options": ["mathematics", "chemistry", "biology", "geography"],
+    "correct": "chemistry",
+    "explanation": "Chemistry explains heat-induced changes in food."
+  },
+  {
+    "question": "Family value system helps to control",
+    "options": ["look", "behavior", "obesity", "balance"],
+    "correct": "behavior",
+    "explanation": "Family values guide and regulate behaviour."
+  },
+  {
+    "question": "Receiving friends at home and giving them food and drinks is called",
+    "options": ["encouragement", "enjoyment", "hostility", "hospitality"],
+    "correct": "hospitality",
+    "explanation": "Hospitality is friendly and generous reception of guests."
+  },
+  {
+    "question": "_____ and _____ are examples of animal fibres.",
+    "options": ["cotton and linen", "wool and cotton", "silk and wool", "rayon and acetate"],
+    "correct": "silk and wool",
+    "explanation": "Silk and wool are animal fibres."
+  },
+  {
+    "question": "The part of the sewing machine that sets the machine in motion is the",
+    "options": ["stitch regulator", "stop motion screw", "balance wheel", "spool spin"],
+    "correct": "balance wheel",
+    "explanation": "The balance wheel (handwheel) drives the sewing mechanism."
+  },
+  {
+    "question": "The end product of protein digestion is",
+    "options": ["glucose", "fatty acids", "amino acids", "sugar"],
+    "correct": "amino acids",
+    "explanation": "Proteins are broken down into amino acids."
+  },
+  {
+    "question": "The workshop of the home is the",
+    "options": ["sitting room", "toilet", "bathroom", "kitchen"],
+    "correct": "kitchen",
+    "explanation": "The kitchen is where food preparation and many household activities occur."
+  },
+  {
+    "question": "Decision making can be easily influenced by",
+    "options": ["resources", "period", "self", "time"],
+    "correct": "resources",
+    "explanation": "Available resources (money, time, skills) influence decisions."
+  },
+  {
+    "question": "Advertisement media are the following except",
+    "options": ["radio", "television", "supermarket", "computer"],
+    "correct": "supermarket",
+    "explanation": "A supermarket is a retail outlet, not an advertising medium."
+  },
+  {
+    "question": "Day-to-day activities of farmers are recorded in the",
+    "options": ["farm list", "farm inventory", "farm diary", "farm records"],
+    "correct": "farm diary",
+    "explanation": "A farm diary is a daily log of activities."
+  },
+  {
+    "question": "_____ is the collection of matured and useful crop parts for processing and storage for home consumption or for sale.",
+    "options": ["winnowing", "harvesting", "processing", "dehusking"],
+    "correct": "harvesting",
+    "explanation": "Harvesting is gathering mature crops."
+  },
+  {
+    "question": "The general farming activities carried out on the farm during crop production from land preparation to harvesting are called",
+    "options": ["cultural practices", "bush cleaning", "production", "harvesting"],
+    "correct": "cultural practices",
+    "explanation": "Cultural practices include all activities from land prep to harvest."
+  },
+  {
+    "question": "The two general methods of propagating agricultural crops are _____ and _____",
+    "options": ["sexual and mature", "sexual and vegetable", "vegetable and asexual", "sexual and asexual"],
+    "correct": "sexual and asexual",
+    "explanation": "Propagation is either sexual (seeds) or asexual (vegetative)."
+  },
+  {
+    "question": "The ability of the soil to supply all the necessary soil nutrients needed by plants for growth and development is known as",
+    "options": ["soil ability", "humus", "soil fertility", "soil texture"],
+    "correct": "soil fertility",
+    "explanation": "Soil fertility is the capacity to provide essential nutrients."
+  },
+  {
+    "question": "_____ and _____ are examples of simple farm tools.",
+    "options": ["Hoe and tractor", "Hoe and cutlass", "Silo and barn", "Hammer and chain saw"],
+    "correct": "Hoe and cutlass",
+    "explanation": "Hoe and cutlass are simple hand tools."
+  },
+  {
+    "question": "_____ is the reproductive organ of a flowering plant.",
+    "options": ["flower", "leaves", "stem", "root"],
+    "correct": "flower",
+    "explanation": "The flower contains the reproductive structures."
+  },
+  {
+    "question": "_____ is an organism that is capable of damaging plant and their products either on the field or in the store.",
+    "options": ["Man", "Cat", "flies", "Pest"],
+    "correct": "Pest",
+    "explanation": "Pests damage crops and stored produce."
+  },
+  {
+    "question": "Agriculture means",
+    "options": ["production of fruits and vegetables", "production of crops only", "production of crops and animals", "production of animals only"],
+    "correct": "production of crops and animals",
+    "explanation": "Agriculture includes crop and livestock production."
+  },
+  {
+    "question": "The importance of agriculture to man and the nation include the following except",
+    "options": ["provision of employment", "provision of fuel for cars", "provision of foreign exchange", "provision of raw materials"],
+    "correct": "provision of fuel for cars",
+    "explanation": "Fuel for cars comes from petroleum, not directly from agriculture."
+  },
+  {
+    "question": "A farming practice which involves movement from one farm land to another when nutrient level of the soil is discovered low is termed",
+    "options": ["shifting cultivation", "permanent farming", "mono agriculture", "none of the above"],
+    "correct": "shifting cultivation",
+    "explanation": "Shifting cultivation moves to new land when fertility declines."
+  },
+  {
+    "question": "One of the following industries in Nigeria does not used agricultural raw materials for its production.",
+    "options": ["textile industry", "soap industry", "canning industry", "cement industry"],
+    "correct": "cement industry",
+    "explanation": "Cement uses limestone and clay, not agricultural raw materials."
+  },
+  {
+    "question": "Which of the following is not an example of terrestrial animals?",
+    "options": ["Rabbit", "Cattle", "Turtle", "Chicken"],
+    "correct": "Turtle",
+    "explanation": "Turtles are aquatic or semi-aquatic; the others are terrestrial."
+  },
+  {
+    "question": "When the farmer produces on a large scale to meet the needs of the community and nation at large, he is said to be practicing",
+    "options": ["subsistence agriculture", "commercial agriculture", "plantation agriculture", "none of the above"],
+    "correct": "commercial agriculture",
+    "explanation": "Commercial agriculture is large-scale production for sale."
+  },
+  {
+    "question": "_____ is the study of how to grow fruits, vegetables and ornamental crops.",
+    "options": ["Horticulture", "Floriculture", "Silviculture", "Apiculture"],
+    "correct": "Horticulture",
+    "explanation": "Horticulture is the science of garden crops (fruits, vegetables, ornamentals)."
+  },
+  {
+    "question": "Agricultural marketing is a sum total of all the activities involved in the flow of produce from the point of production to the",
+    "options": ["retailer", "consumer", "commissioned agent", "wholesaler"],
+    "correct": "consumer",
+    "explanation": "Marketing ends when the product reaches the final consumer."
+  },
+  {
+    "question": "Igneous, sedimentary and metamorphic are types of",
+    "options": ["soil", "farming", "rocks", "crops"],
+    "correct": "rocks",
+    "explanation": "These are the three main rock types."
+  },
+  {
+    "question": "_____ is the removal of weak or extra seeding from a stand of more than required.",
+    "options": ["Mulching", "Weeding", "Supplying", "Thinning"],
+    "correct": "Thinning",
+    "explanation": "Thinning removes excess seedlings to reduce competition."
+  },
+  {
+    "question": "_____ can be defined as any material which is capable of improving the soil fertility when added to the soil.",
+    "options": ["Manure", "Mulching", "Weeding", "Shifting"],
+    "correct": "Manure",
+    "explanation": "Manure adds organic matter and nutrients to soil."
+  },
+  {
+    "question": "_____ is the settled form of livestock production",
+    "options": ["Nomadic herding", "Soil cropping", "Pastoral farming", "Ranching"],
+    "correct": "Ranching",
+    "explanation": "Ranching is settled, large-scale livestock production on fenced land."
+  },
+  {
+    "question": "The activity which involves the management and production of fish and other aquatic animals is known as",
+    "options": ["livestock production", "fishery", "snail production", "horticulture"],
+    "correct": "fishery",
+    "explanation": "Fishery involves fish farming and capture."
+  },
+  {
+    "question": "_____ acts as an agent for firms or individuals who want to buy and sell securities on the stock exchange.",
+    "options": ["Brokers", "Jobbers", "Investors", "Speculators"],
+    "correct": "Brokers",
+    "explanation": "Brokers facilitate buying and selling of securities."
+  },
+  {
+    "question": "The leaf helps the plant to manufacture its food by chemical process is known as",
+    "options": ["phototropism", "plasmolysis", "chemostynthesis", "photosynthesis"],
+    "correct": "photosynthesis",
+    "explanation": "Photosynthesis is the process of making food using sunlight."
+  },
+  {
+    "question": "A typical flowering plant is made up of two major systems known as",
+    "options": ["tap-root and fibrous roots", "aerial and fibrous", "shoot and stem", "shoot and root"],
+    "correct": "shoot and root",
+    "explanation": "The two systems are the shoot system (above ground) and root system (below ground)."
+  },
+  {
+    "question": "The principal origin of the soil is",
+    "options": ["cooling of molten magma", "weathering of rocks", "deposition of rocks", "solidification of magma"],
+    "correct": "weathering of rocks",
+    "explanation": "Soil forms from weathered rock particles."
+  },
+  {
+    "question": "Soil nutrients can be conserved through one of the following methods.",
+    "options": ["mulching", "leaching", "plant uptake", "bush burning"],
+    "correct": "mulching",
+    "explanation": "Mulching conserves nutrients by reducing erosion and adding organic matter."
+  },
+  {
+    "question": "Formation of soil is influenced by the following factors except",
+    "options": ["time", "living organism", "climate", "petroleum"],
+    "correct": "petroleum",
+    "explanation": "Petroleum is not a soil-forming factor; factors include parent material, climate, organisms, topography, and time."
+  },
+  {
+    "question": "The method of increasing or multiplying the number of crop plants by cultivating the seeds or other plant parts is known as",
+    "options": ["multiplication", "cultivation", "propagation", "none of the above"],
+    "correct": "propagation",
+    "explanation": "Propagation is the multiplication of plants."
+  },
+  {
+    "question": "Which of the following is not an agricultural raw material?",
+    "options": ["Cocoa", "N.P.K", "Cotton", "Rubber"],
+    "correct": "N.P.K",
+    "explanation": "N.P.K is fertilizer (an input), not a raw material from agriculture."
+  },
+  {
+    "question": "Food for a sick person can be served",
+    "options": ["inside the pot", "inside the bowl", "on the bed", "on a tray"],
+    "correct": "on a tray",
+    "explanation": "A tray provides a stable, clean surface for serving meals to a sick person."
+  },
+  {
+    "question": "One of the disadvantages of early marriage is",
+    "options": ["disrupted education", "joyful home", "decent accommodation", "material stability"],
+    "correct": "disrupted education",
+    "explanation": "Early marriage often interrupts schooling."
+  },
+  {
+    "question": "The struggle between two or more people in disagreement is termed",
+    "options": ["problem", "fault", "challenge", "conflict"],
+    "correct": "conflict",
+    "explanation": "Conflict is a serious disagreement or argument."
+  },
+  {
+    "question": "One of the following is not a sexually transmitted disease?",
+    "options": ["Gonorrhea", "HIV", "syphilis", "malaria"],
+    "correct": "malaria",
+    "explanation": "Malaria is a mosquito-borne parasitic disease, not an STI."
+  },
+  {
+    "question": "Cutting food items into long, thin pieces is termed",
+    "options": ["shredding", "grating", "chopping", "winnowing"],
+    "correct": "shredding",
+    "explanation": "Shredding produces long, thin strips."
+  },
+  {
+    "question": "To remove foreign bodies from the ears, the use of one of these is advised",
+    "options": ["use a clip", "see a doctor", "use a cotton bud", "use a broom"],
+    "correct": "see a doctor",
+    "explanation": "A doctor should remove foreign objects to prevent injury."
+  },
+  {
+    "question": "Disease causing germs can enter the mouth through dirty",
+    "options": ["wrist", "arm", "fingernails", "feet"],
+    "correct": "fingernails",
+    "explanation": "Dirty fingernails harbour germs that can enter the mouth via fingers."
+  },
+  {
+    "question": "The _____ helps the body to get rid of metabolic wastes through sweating",
+    "options": ["kidney", "anus", "respiratory tract", "skin"],
+    "correct": "skin",
+    "explanation": "The skin excretes sweat containing water, salts, and urea."
+  },
+  {
+    "question": "The pulp cavity of the teeth contains _____ and nerves",
+    "options": ["blood vessels", "tissues", "bone", "salt"],
+    "correct": "blood vessels",
+    "explanation": "The pulp cavity contains blood vessels and nerves."
+  },
+  {
+    "question": "The first set of teeth grown by a baby is referred to as _____ teeth",
+    "options": ["premolar", "milk", "permanent", "wisdom"],
+    "correct": "milk",
+    "explanation": "Milk teeth are the first set."
+  },
+  {
+    "question": "Many fibres can be twisted to form",
+    "options": ["cloth", "fabric", "yarn", "textile"],
+    "correct": "yarn",
+    "explanation": "Yarn is made by twisting fibres together."
+  },
+  {
+    "question": "_____ is a plan showing the courses that make up a meal.",
+    "options": ["Food guide", "Time table", "Setting plan", "Menu"],
+    "correct": "Menu",
+    "explanation": "A menu lists the dishes served in a meal."
+  },
+  {
+    "question": "Adolescence is a period of rapid",
+    "options": ["growth", "rest", "sleep", "exercise"],
+    "correct": "growth",
+    "explanation": "Adolescence is marked by rapid physical growth and development."
+  },
+  {
+    "question": "The breakup of marriage is called",
+    "options": ["friendship", "divorce", "Nikkah", "director"],
+    "correct": "divorce",
+    "explanation": "Divorce is the legal dissolution of a marriage."
+  },
+  {
+    "question": "One of the following helps digestion and bowel movement.",
+    "options": ["Minerals", "Vitamins", "Roughage", "Protein"],
+    "correct": "Roughage",
+    "explanation": "Roughage (fibre) aids digestion and prevents constipation."
+  },
+  {
+    "question": "The functional area used as a centre for sleeping is a",
+    "options": ["room", "sitting room", "rest room", "dining room"],
+    "correct": "room",
+    "explanation": "A bedroom is used for sleeping."
+  },
+  {
+    "question": "The following are laundry processes except",
+    "options": ["starching", "sorting", "designing", "ironing"],
+    "correct": "designing",
+    "explanation": "Designing is not a laundry process; laundry includes sorting, washing, starching, ironing."
+  },
+  {
+    "question": "_____ prevents children from diseases.",
+    "options": ["Air", "Immunization", "Sun", "Love"],
+    "correct": "Immunization",
+    "explanation": "Immunization prevents infectious diseases."
+  },
+  {
+    "question": "The best paper to use while using a water closet is",
+    "options": ["soft tissue paper", "soft newspaper", "fresh paper", "dry leaves"],
+    "correct": "soft tissue paper",
+    "explanation": "Soft toilet tissue is designed for safe use with water closets."
+  },
+  {
+    "question": "Cake is often baked in",
+    "options": ["a refrigerator", "an oven", "wood", "a stove"],
+    "correct": "an oven",
+    "explanation": "Cakes are baked in an oven."
+  },
+  {
+    "question": "_____ is used as a covering for warmth on cold nights.",
+    "options": ["Bed sheets", "Draper", "Blanket", "Bed linen"],
+    "correct": "Blanket",
+    "explanation": "A blanket provides warmth."
+  },
+  {
+    "question": "_____ is used to prevent body odour due to perspiration",
+    "options": ["Nail paint", "Make up", "Body cream", "Deodorant"],
+    "correct": "Deodorant",
+    "explanation": "Deodorant reduces body odour caused by sweat."
+  },
+  {
+    "question": "A female who entertains is referred to as",
+    "options": ["hostess", "host", "guest", "waitress"],
+    "correct": "hostess",
+    "explanation": "A hostess is a female who entertains guests."
+  },
+  {
+    "question": "A family that includes aunts, uncles, grand-parents, cousins and other relations is called _____.",
+    "options": ["extension family", "extended family", "expensive family", "expanded family"],
+    "correct": "extended family",
+    "explanation": "An extended family includes multiple generations and relatives."
+  },
+  {
+    "question": "Another word to describe a wardrobe is _____.",
+    "options": ["store", "box", "closet", "bug"],
+    "correct": "closet",
+    "explanation": "A wardrobe is a closet for clothes."
+  },
+  {
+    "question": "_____ occurs as a result of sexual relationship between a man and a woman who is ovulating.",
+    "options": ["Ante-natal", "Child birth", "Pregnancy", "None of the above"],
+    "correct": "Pregnancy",
+    "explanation": "Pregnancy occurs when sperm fertilizes an egg during ovulation."
+  },
+  {
+    "question": "To prevent unwanted pregnancy, you must _____ totally from sex.",
+    "options": ["be involved", "be interested", "get closer", "abstain"],
+    "correct": "abstain",
+    "explanation": "Abstinence is the only 100% effective prevention."
+  },
+  {
+    "question": "Which of the following is important for a healthy teeth?",
+    "options": ["fluoride", "protein", "nutrients", "chloride"],
+    "correct": "fluoride",
+    "explanation": "Fluoride strengthens enamel and prevents cavities."
+  },
+  {
+    "question": "_____ is the way we walk, sit and stand.",
+    "options": ["Exercise", "Posture", "Standing", "All of the above"],
+    "correct": "Posture",
+    "explanation": "Posture is body position while standing, sitting, or walking."
+  },
+  {
+    "question": "The plan for the future expenditures of a family is called a household _____.",
+    "options": ["plan", "expenses", "budget", "income"],
+    "correct": "budget",
+    "explanation": "A household budget plans future income and spending."
+  },
+  {
+    "question": "The root knot of tomato is a disease caused by",
+    "options": ["bacteria", "fungus", "virus", "nematodes"],
+    "correct": "nematodes",
+    "explanation": "Root knot is caused by nematodes."
+  },
+  {
+    "question": "The percentage by volume of water in a good soil sample is",
+    "options": ["5%", "20%", "25%", "45%"],
+    "correct": "25%",
+    "explanation": "Ideal soil has about 25% water."
+  },
+  {
+    "question": "Which of the following soil type has the largest pore/air space between its particles?",
+    "options": ["Loamy", "Sandy", "Clayey", "Silty"],
+    "correct": "Sandy",
+    "explanation": "Sandy soil has large particles with large pore spaces for air."
+  },
+  {
+    "question": "Reason for preserving farm produce include the following except",
+    "options": ["To promote growth of microorganisms", "To ensure all round availability of produce", "To prevent spoilage of produce", "To keep its flavour"],
+    "correct": "To promote growth of microorganisms",
+    "explanation": "Preservation aims to prevent microbial growth, not promote it."
+  },
+  {
+    "question": "Animal with complex stomach are",
+    "options": ["aquatic animal", "ruminant animal", "non-ruminant animal", "Terrestrial animals"],
+    "correct": "ruminant animal",
+    "explanation": "Ruminants (cattle, sheep) have a complex four-chambered stomach."
+  },
+  {
+    "question": "The upper most loose layer of the earth crust which provides support and supplies nutrients for plants growth is termed",
+    "options": ["rock", "clay", "soil", "stone"],
+    "correct": "soil",
+    "explanation": "Soil is the uppermost layer that supports plant life."
+  },
+  {
+    "question": "Which of the following is NOT a simple farm tool?",
+    "options": ["Cutlass", "Rake", "Secateurs", "Incubators"],
+    "correct": "Incubators",
+    "explanation": "An incubator is a complex machine, not a simple hand tool."
+  },
+  {
+    "question": "Crops grown specifically to feed livestock are called",
+    "options": ["weeds", "forages", "cereals", "grass"],
+    "correct": "forages",
+    "explanation": "Forage crops are grown for animal feed."
+  },
+  {
+    "question": "Coffee, cocoa and tea are examples of _____ crops.",
+    "options": ["spices", "beverage", "cereals", "drugs"],
+    "correct": "beverage",
+    "explanation": "These are used to make stimulating beverages."
+  },
+  {
+    "question": "The addition of liming materials to the soil is meant to correct soil",
+    "options": ["acidity", "alkalinity", "porosity", "fertility"],
+    "correct": "acidity",
+    "explanation": "Lime reduces soil acidity (raises pH)."
+  },
+  {
+    "question": "Which of these soil types is best for agricultural practices?",
+    "options": ["Humus", "Loamy", "Sandy", "Clayey"],
+    "correct": "Loamy",
+    "explanation": "Loamy soil has balanced properties ideal for most crops."
+  },
+  {
+    "question": "The act of giving birth to young ones in animals is known as",
+    "options": ["fertilization", "gestation", "lactation", "parturition"],
+    "correct": "parturition",
+    "explanation": "Parturition is the process of giving birth."
+  },
+  {
+    "question": "Marketing of agricultural produce is aimed at carrying out the following except",
+    "options": ["generation of income", "provision of employment", "ensuring availability of agricultural produce", "ensuring agricultural produce are kept away from the people"],
+    "correct": "ensuring agricultural produce are kept away from the people",
+    "explanation": "Marketing aims to make produce available, not keep it away."
+  },
+  {
+    "question": "_____ is an example of a production structure on farm.",
+    "options": ["Crib", "Barn", "Battery cage", "Silos"],
+    "correct": "Battery cage",
+    "explanation": "A battery cage is for poultry production; crib, barn, silos are storage structures."
+  },
+  {
+    "question": "The cultivation of flowers, fruits and vegetables is called",
+    "options": ["Monoculture", "Horticulture", "Silviculture", "Heliculture"],
+    "correct": "Horticulture",
+    "explanation": "Horticulture is the science of garden crops."
+  },
+  {
+    "question": "The sales of agricultural product across the border of nations is referred to as",
+    "options": ["international trade", "local trade", "marketing", "none of the above"],
+    "correct": "international trade",
+    "explanation": "International trade involves cross-border transactions."
+  },
+  {
+    "question": "The system of rearing animals in an enclosed housing where all needs of the animals are provided by the farmer is termed",
+    "options": ["Livestock production", "Extensive system", "Intensive system", "Semi-intensive System"],
+    "correct": "Intensive system",
+    "explanation": "Intensive farming keeps animals confined with full care."
+  },
+  {
+    "question": "The degree of fineness or coarseness of the particles of a soil sample is defined by",
+    "options": ["soil structure", "soil profile", "soil texture", "soil capillarity"],
+    "correct": "soil texture",
+    "explanation": "Soil texture refers to particle size distribution."
+  },
+  {
+    "question": "The study of the culture and rearing of fishes and other aquatic animals in a body of water is termed",
+    "options": ["apiculture", "aquaculture", "heliculture", "silviculture"],
+    "correct": "aquaculture",
+    "explanation": "Aquaculture is fish farming."
+  },
+  {
+    "question": "One of the following people is not involved in the stock exchange.",
+    "options": ["Jobber", "Wholesaler", "Brokers", "Investor"],
+    "correct": "Wholesaler",
+    "explanation": "Wholesalers are in goods distribution, not stock exchange."
+  },
+  {
+    "question": "The type of ration fed to animal just to enable them carry out their normal body activities without gaining or losing weight is called",
+    "options": ["balanced ration", "maintenance ration", "production ration", "fattening ration"],
+    "correct": "maintenance ration",
+    "explanation": "Maintenance ration meets basic needs without weight change."
+  },
+  {
+    "question": "The artificial method of supplying water to growing plants during the dry season or period of low rainfall is termed",
+    "options": ["staking", "mulching", "drainage", "irrigation"],
+    "correct": "irrigation",
+    "explanation": "Irrigation artificially supplies water."
+  },
+  {
+    "question": "Crops that are grown to protect the soil from erosion are called",
+    "options": ["animal crops", "cover crops", "perennial crops", "hay crops"],
+    "correct": "cover crops",
+    "explanation": "Cover crops protect soil from erosion."
+  },
+  {
+    "question": "The process of fixing prices for goods and services to determine their value is called",
+    "options": ["payment", "advertising", "pricing", "purchasing"],
+    "correct": "pricing",
+    "explanation": "Pricing sets the monetary value of goods."
+  },
+  {
+    "question": "Advertisement media for goods and services include the following except",
+    "options": ["supermarket", "radio", "television", "internet"],
+    "correct": "supermarket",
+    "explanation": "Supermarket is a retail outlet, not an advertising medium."
+  },
+  {
+    "question": "The following are activities taking place at the channels of distribution except",
+    "options": ["loading", "packaging", "grading", "dipping"],
+    "correct": "dipping",
+    "explanation": "Dipping is not a standard distribution activity."
+  },
+  {
+    "question": "The structure for the housing of rabbit is called a",
+    "options": ["Barn", "Silos", "Hutch", "Battery cage"],
+    "correct": "Hutch",
+    "explanation": "A hutch is a cage for rabbits."
+  },
+  {
+    "question": "The transfer of young seedlings from the nursery to the field is termed",
+    "options": ["transplanting", "transferring", "transportation", "translation"],
+    "correct": "transplanting",
+    "explanation": "Transplanting moves seedlings from nursery to field."
+  },
+  {
+    "question": "The arrangement of soil particles in aggregates define the",
+    "options": ["soil profile", "soil texture", "soil structure", "soil colloids"],
+    "correct": "soil structure",
+    "explanation": "Soil structure is how particles clump into aggregates."
+  },
+  {
+    "question": "Cake is often baked in",
+    "options": ["a sink", "a cooler", "a roaster", "an oven"],
+    "correct": "an oven",
+    "explanation": "Cakes are baked in an oven."
+  },
+  {
+    "question": "_____ are animal fibres.",
+    "options": ["Cotton and linen", "Wool and cotton", "Wool and silk", "Rayon and acetate"],
+    "correct": "Wool and silk",
+    "explanation": "Wool and silk are animal fibres."
+  },
+  {
+    "question": "White colour signifies",
+    "options": ["unity", "peace", "love", "hatred"],
+    "correct": "peace",
+    "explanation": "White symbolizes peace and purity."
+  },
+  {
+    "question": "Oil is",
+    "options": ["liquid", "solid", "gas", "carbohydrate"],
+    "correct": "liquid",
+    "explanation": "Oils are liquid at room temperature."
+  },
+  {
+    "question": "Pounded yam, vegetable soup and meat stew can be best eaten as",
+    "options": ["breakfast", "lunch meal", "supper meal", "appetizer"],
+    "correct": "lunch meal",
+    "explanation": "This is a typical main meal (lunch or dinner)."
+  },
+  {
+    "question": "Methylene Spirits is a solvent that can remove _____ from clothes.",
+    "options": ["dirt", "dust", "grease", "water"],
+    "correct": "grease",
+    "explanation": "Methylene spirits is a grease solvent."
+  },
+  {
+    "question": "Fibres are classified into _____ categories.",
+    "options": ["four", "five", "two", "three"],
+    "correct": "two",
+    "explanation": "Fibres are classified as natural or manufactured."
+  },
+  {
+    "question": "_____ is a fabric finish applied to fabrics after construction.",
+    "options": ["Lustre", "Glazing", "Fabric finish", "Fabrics"],
+    "correct": "Fabric finish",
+    "explanation": "Fabric finishes are applied after weaving or knitting."
+  },
+  {
+    "question": "Any material placed on the floor before laying the carpet is called",
+    "options": ["an undersurface", "underlay", "overlay", "inlay"],
+    "correct": "underlay",
+    "explanation": "Underlay provides cushioning and insulation under carpet."
+  },
+  {
+    "question": "The thread which runs length wise in a woven fabric is called",
+    "options": ["weft", "selvedge", "bias", "warp"],
+    "correct": "warp",
+    "explanation": "Warp threads run lengthwise; weft runs crosswise."
+  },
+  {
+    "question": "The sense organ for smelling is the",
+    "options": ["hair", "hand", "nose", "ear"],
+    "correct": "nose",
+    "explanation": "The nose is the organ of smell."
+  },
+  {
+    "question": "Fatigue refers to",
+    "options": ["work", "restlessness", "exercise", "tiredness"],
+    "correct": "tiredness",
+    "explanation": "Fatigue is extreme tiredness."
+  },
+  {
+    "question": "Physical force used to harm someone is",
+    "options": ["action", "violence", "behaviour", "injury"],
+    "correct": "violence",
+    "explanation": "Violence is physical force intended to harm."
+  },
+  {
+    "question": "Receiving friends in the home and giving them foods, drinks is called",
+    "options": ["encouragement", "enjoyment", "hospitality", "hostility"],
+    "correct": "hospitality",
+    "explanation": "Hospitality is friendly reception of guests."
+  },
+  {
+    "question": "The joining line made when two fabrics are stitched together is termed",
+    "options": ["seam line", "seam allowance", "grain line", "hem"],
+    "correct": "seam line",
+    "explanation": "A seam line is where two fabric pieces are joined."
+  },
+  {
+    "question": "The monthly flow of blood from the vagina in a woman of child-bearing age is termed",
+    "options": ["puberty", "adolescence", "menstruation", "adulthood"],
+    "correct": "menstruation",
+    "explanation": "Menstruation is monthly uterine bleeding."
+  },
+  {
+    "question": "One of the following has no known cure yet",
+    "options": ["HIV/AIDS", "gonorrhea", "syphilis", "chlamydia"],
+    "correct": "HIV/AIDS",
+    "explanation": "HIV/AIDS has no cure, only treatment."
+  },
+  {
+    "question": "The subject that helps a home economist to understand the effect of heat on food is",
+    "options": ["mathematics", "chemistry", "sociology", "geography"],
+    "correct": "chemistry",
+    "explanation": "Chemistry explains heat-induced changes in food."
+  },
+  {
+    "question": "One who creates new styles of clothing is a",
+    "options": ["model", "advertiser", "designer", "draper"],
+    "correct": "designer",
+    "explanation": "A fashion designer creates clothing styles."
+  },
+  {
+    "question": "Which of the following should be removed from clothing before storage?",
+    "options": ["Broaches and pins", "Collars and cuffs", "Sleeves and collars", "Zippers"],
+    "correct": "Broaches and pins",
+    "explanation": "Brooches and pins can damage fabric during storage."
+  },
+  {
+    "question": "The following are fruit drinks except",
+    "options": ["mineral drinks", "pineapple drink", "orange drinks", "mango drinks"],
+    "correct": "mineral drinks",
+    "explanation": "Mineral drinks are carbonated soft drinks, not fruit-based."
+  },
+  {
+    "question": "_____ is the process of replacing worn-out parts of a cloth with a piece of fabric",
+    "options": ["Darning", "Mending", "Patching", "Calico"],
+    "correct": "Patching",
+    "explanation": "Patching covers a hole with a piece of fabric."
+  },
+  {
+    "question": "The first set of teeth which human beings grow are",
+    "options": ["milk teeth", "permanent teeth", "premolar", "incisor"],
+    "correct": "milk teeth",
+    "explanation": "Milk teeth are the first set."
+  },
+  {
+    "question": "The end product of protein digestion is",
+    "options": ["amino acid", "antacid", "fatty acid", "aspartic"],
+    "correct": "amino acid",
+    "explanation": "Proteins break down into amino acids."
+  },
+  {
+    "question": "Adolescence is a period of",
+    "options": ["huge exercise", "rapid growth", "essential rest", "hard work"],
+    "correct": "rapid growth",
+    "explanation": "Adolescence is marked by rapid physical and mental growth."
+  }
+      ];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with PVS topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
