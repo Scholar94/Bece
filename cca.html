@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - CCA Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">CCA</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">CULTURAL AND CREATIVE ART</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any RNVE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from PVS 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+  {
+    "question": "One of the following is said to be performing art.",
+    "options": ["Visual", "Drama", "Craft", "Libera"],
+    "correct": "Drama",
+    "explanation": "Drama is a form of performing art that involves acting and storytelling on stage."
+  },
+  {
+    "question": "Dance is the movement of the body in a ______ manner.",
+    "options": ["rhythmic", "slow", "fast", "confusing"],
+    "correct": "rhythmic",
+    "explanation": "Dance involves structured, rhythmic body movements, often performed to music."
+  },
+  {
+    "question": "______ aids dancing among people.",
+    "options": ["Exercise", "Music", "Art", "Choreography"],
+    "correct": "Music",
+    "explanation": "Music provides rhythm and tempo that guide dance movements."
+  },
+  {
+    "question": "The closing speech made by the narrator to the audience at the end of a play is",
+    "options": ["dialogue", "monologue", "epilogue", "prologue"],
+    "correct": "epilogue",
+    "explanation": "An epilogue is a concluding speech addressed to the audience at the end of a play."
+  },
+  {
+    "question": "______ is a non-verbal drama performed with the sequence of sound and body gesture.",
+    "options": ["Miming", "Opera", "Dance drama", "Choreography"],
+    "correct": "Miming",
+    "explanation": "Mime uses gestures and body movements without spoken words to tell a story."
+  },
+  {
+    "question": "One of these is a material for mosaic.",
+    "options": ["Pebbles", "Ruler", "Glue", "Paint"],
+    "correct": "Pebbles",
+    "explanation": "Mosaics are created by arranging small pieces of stone, glass, or pebbles on a surface."
+  },
+  {
+    "question": "Shadding makes a drawing ______.",
+    "options": ["dark", "beautiful", "solid", "thick"],
+    "correct": "solid",
+    "explanation": "Shading adds depth and dimension, making a drawing appear more solid or three-dimensional."
+  },
+  {
+    "question": "The colour of the Nigeria Flag is",
+    "options": ["black, green and white", "yellow, green and white", "green, white and green", "red, blue and yellow"],
+    "correct": "green, white and green",
+    "explanation": "The Nigerian flag consists of three vertical stripes: green, white, and green."
+  },
+  {
+    "question": "______ is the drawing of things that are made by God.",
+    "options": ["Nature", "Imagination", "Still life", "Drawing"],
+    "correct": "Nature",
+    "explanation": "Nature drawing depicts natural objects and scenes created by God, such as plants, animals, and landscapes."
+  },
+  {
+    "question": "The coloured substances that are put on actor and actress face to improve or change their appearance is",
+    "options": ["acting", "stage", "costume", "make-up"],
+    "correct": "make-up",
+    "explanation": "Make-up is used to enhance or alter an actor's appearance for a role."
+  },
+  {
+    "question": "______ is one of the materials used for the production of the tie-dye.",
+    "options": ["Raffia", "Clay", "Texture", "Bead"],
+    "correct": "Raffia",
+    "explanation": "Raffia is often used to tie and resist dye in traditional tie-dye fabric production."
+  },
+  {
+    "question": "Man-made drawing is the drawing of things that are made by",
+    "options": ["God", "man", "woman", "none"],
+    "correct": "man",
+    "explanation": "Man-made drawing depicts objects created by humans, such as buildings, tools, and vehicles."
+  },
+  {
+    "question": "Mural painting is done on",
+    "options": ["plastic", "wall", "vehicle", "none"],
+    "correct": "wall",
+    "explanation": "A mural is a large painting or artwork applied directly onto a wall or ceiling."
+  },
+  {
+    "question": "Which of these materials are suitable for painting?",
+    "options": ["Water colour and starch", "Paper and Biro", "Crayon and pencil", "Poster colour and brush"],
+    "correct": "Poster colour and brush",
+    "explanation": "Poster colour and brush are standard materials used for painting."
+  },
+  {
+    "question": "Photography can be classified under",
+    "options": ["fine art", "applied art", "liberal art", "non-visual art"],
+    "correct": "fine art",
+    "explanation": "Photography is often considered a form of fine art when it is created for aesthetic expression."
+  },
+  {
+    "question": "Brush is to painting as ______ is to sculpture.",
+    "options": ["pencil", "ink", "spatula", "palen"],
+    "correct": "spatula",
+    "explanation": "A spatula is a tool used in sculpture for shaping and modeling materials."
+  },
+  {
+    "question": "The two branches of art are ______ and ______.",
+    "options": ["visual and non visual", "fine and applied art", "visual and music", "painting and drawing"],
+    "correct": "visual and non visual",
+    "explanation": "Art is broadly divided into visual arts (e.g., painting, sculpture) and non-visual arts (e.g., music, drama)."
+  },
+  {
+    "question": "A person who designs ceramic ware is a",
+    "options": ["painter", "graphic designer", "wore designer", "ceramist"],
+    "correct": "ceramist",
+    "explanation": "A ceramist is an artist who creates objects from clay and other ceramic materials."
+  },
+  {
+    "question": "Pastel is to drawing as cement is to",
+    "options": ["ceramic", "sculpture", "textile", "graph"],
+    "correct": "sculpture",
+    "explanation": "Cement is a material used in sculpture, similar to how pastel is used in drawing."
+  },
+  {
+    "question": "A bag used for keeping two dimensional works and materials.",
+    "options": ["A port folio", "A brief case", "Artist's bag", "A gallery"],
+    "correct": "A port folio",
+    "explanation": "A portfolio is a case used to store and carry flat artworks, drawings, and documents."
+  },
+  {
+    "question": "Which of these is cool colour?",
+    "options": ["red", "yellow", "blue", "orang"],
+    "correct": "blue",
+    "explanation": "Blue is considered a cool color, often associated with calmness and serenity."
+  },
+  {
+    "question": "The colour wheel is",
+    "options": ["the wheel of a car painted", "the wheel of a bicycle colour", "a coloured wooden wheel", "an arrangement of primary, secondary and tertiary colours in concentric circles"],
+    "correct": "an arrangement of primary, secondary and tertiary colours in concentric circles",
+    "explanation": "The color wheel is a circular diagram that shows the relationships between colors."
+  },
+  {
+    "question": "Monochrome means",
+    "options": ["the same colour in different tones", "two colours in the same hue", "the same colour in the same tone", "two colours in different tones"],
+    "correct": "the same colour in different tones",
+    "explanation": "Monochrome refers to a color scheme using variations in lightness and saturation of a single hue."
+  },
+  {
+    "question": "Another name for tertiary colour is",
+    "options": ["secondary colour", "primary", "intermediate", "violet"],
+    "correct": "intermediate",
+    "explanation": "Tertiary colors, also called intermediate colors, are made by mixing a primary and a secondary color."
+  },
+  {
+    "question": "A painting or drawing executed in any colour is called",
+    "options": ["collage", "a sculpture", "monochrome", "polychrome"],
+    "correct": "polychrome",
+    "explanation": "Polychrome refers to art executed in multiple colors."
+  },
+  {
+    "question": "______ is an art of combining sounds in an organized manner.",
+    "options": ["Art", "Culture", "Music", "Noise"],
+    "correct": "Music",
+    "explanation": "Music is the art of arranging sounds in time to produce a composition with melody, harmony, and rhythm."
+  },
+  {
+    "question": "One of the following is NOT an indigenous style of music practice in Africa.",
+    "options": ["Bolojo", "Jazz", "Apala", "Ogodo"],
+    "correct": "Jazz",
+    "explanation": "Jazz originated in the African-American communities of New Orleans, not as an indigenous African style."
+  },
+  {
+    "question": "The following are the uses of music EXCEPT",
+    "options": ["transport", "entertainment", "advertisement", "ritual"],
+    "correct": "transport",
+    "explanation": "Music is used for entertainment, advertisement, and rituals, but not for physical transportation."
+  },
+  {
+    "question": "The family of African musical instruments constructed with animal skin are called",
+    "options": ["Idiophone", "Membranophones", "Anatophone", "Chordophone"],
+    "correct": "Membranophones",
+    "explanation": "Membranophones produce sound primarily by way of a vibrating stretched membrane, often animal skin."
+  },
+  {
+    "question": "______ is the musical instrument used for announcement and to call people's attention.",
+    "options": ["Omele", "Gangan", "Oja", "Agogo"],
+    "correct": "Gangan",
+    "explanation": "The Gangan (talking drum) is traditionally used to convey messages and announcements."
+  },
+  {
+    "question": "______ sign increase a note by a Semitone.",
+    "options": ["Flat", "Natural", "Double flat", "Sharp"],
+    "correct": "Sharp",
+    "explanation": "A sharp sign raises the pitch of a note by one semitone."
+  },
+  {
+    "question": "A great staff is made up of ______ lines and ______ spaces.",
+    "options": ["5,4", "10,12", "11,10", "5,5"],
+    "correct": "11,10",
+    "explanation": "The great staff combines the treble and bass staves, totaling 11 lines and 10 spaces."
+  },
+  {
+    "question": "The durational value of a Semibreve note is",
+    "options": ["8", "4", "2", "1"],
+    "correct": "4",
+    "explanation": "A semibreve (whole note) typically lasts for four beats in common time."
+  },
+  {
+    "question": "______ is a series of notes moving in ascending and descending order.",
+    "options": ["Anacrusis", "Syncopation", "Scale", "Beat"],
+    "correct": "Scale",
+    "explanation": "A scale is a sequence of musical notes ordered by pitch, either ascending or descending."
+  },
+  {
+    "question": "The above musical symbol is called",
+    "options": ["Bass clef", "Movable clef", "Alto clef", "Treble clef"],
+    "correct": "Treble clef",
+    "explanation": "The treble clef, or G clef, is used for higher-pitched notes."
+  },
+  {
+    "question": "______ is the set of five lines and four spaces on which notes are written.",
+    "options": ["Stave", "Bar", "Beat", "Melody"],
+    "correct": "Stave",
+    "explanation": "A stave (or staff) is the five-line grid used in musical notation."
+  },
+  {
+    "question": "Another name for bass clef is",
+    "options": ["D clef", "C clef", "F clef", "E clef"],
+    "correct": "F clef",
+    "explanation": "The bass clef is also known as the F clef because its symbol originated from the letter F."
+  },
+  {
+    "question": "A ______ contains three different notes.",
+    "options": ["Interval", "Cadence", "Major", "Triad"],
+    "correct": "Triad",
+    "explanation": "A triad is a set of three notes that can be stacked in thirds."
+  },
+  {
+    "question": "Chord i, iv and v are known as",
+    "options": ["tertiary triad", "primary triad", "secondary triad", "nursery triad"],
+    "correct": "primary triad",
+    "explanation": "In music theory, chords built on the first, fourth, and fifth degrees of a scale are called primary triads."
+  },
+  {
+    "question": "A triad consist of a root + a major 3rd + augmented 5th.",
+    "options": ["agmented", "diminished", "minor", "major"],
+    "correct": "agmented",
+    "explanation": "An augmented triad is formed by a root, a major third, and an augmented fifth."
+  },
+  {
+    "question": "______ is the distance in pitch between two notes.",
+    "options": ["Triad", "Interval", "Cadence", "Chord"],
+    "correct": "Interval",
+    "explanation": "An interval measures the pitch difference between two musical notes."
+  },
+  {
+    "question": "There are two kinds of intervals harmonic and",
+    "options": ["triads", "cadence", "melodic", "enhancement"],
+    "correct": "melodic",
+    "explanation": "Intervals can be harmonic (notes played simultaneously) or melodic (notes played in succession)."
+  },
+  {
+    "question": "There are ______ quality and names of intervals.",
+    "options": ["2", "3", "4", "5"],
+    "correct": "5",
+    "explanation": "The five main qualities of intervals are perfect, major, minor, augmented, and diminished."
+  },
+  {
+    "question": "A ______ is the last two chords that make a piece of music.",
+    "options": ["cadence", "trial", "chord", "interval"],
+    "correct": "cadence",
+    "explanation": "A cadence is a sequence of chords that concludes a musical phrase."
+  },
+  {
+    "question": "There are ______ types of cadence.",
+    "options": ["2", "3", "4", "5"],
+    "correct": "4",
+    "explanation": "The four main types of cadences are perfect, imperfect, plagal, and interrupted."
+  },
+  {
+    "question": "______ is someone who writes drama.",
+    "options": ["Dramatist", "Musician", "Director", "Cast", "Crew"],
+    "correct": "Dramatist",
+    "explanation": "A dramatist is a person who writes plays or dramas."
+  },
+  {
+    "question": "People that are involved in drama production are called",
+    "options": ["cast", "drama personnel", "crew", "actor", "audience"],
+    "correct": "drama personnel",
+    "explanation": "Drama personnel refers to all individuals involved in the production of a play."
+  },
+  {
+    "question": "Those who act in a drama are",
+    "options": ["form", "cast", "comedy", "epic", "flash back"],
+    "correct": "cast",
+    "explanation": "The cast consists of actors and actresses who perform roles in a drama."
+  },
+  {
+    "question": "A kind of drama whereby actors and actresses cover or disguise his or her face for the role(s) to play is",
+    "options": ["melodrama", "comedy", "masquerade", "tragedy"],
+    "correct": "masquerade",
+    "explanation": "Masquerade involves wearing masks or face coverings to portray a character."
+  },
+  {
+    "question": "The group of people that come to the theater to watch a play are called",
+    "options": ["audience", "entourage", "congregation", "spectator"],
+    "correct": "audience",
+    "explanation": "The audience is the group of spectators at a performance."
+  },
+  {
+    "question": "The first stage of rehearsal is",
+    "options": ["play", "reading", "action", "movement"],
+    "correct": "reading",
+    "explanation": "The initial rehearsal often involves a read-through of the script by the cast."
+  },
+  {
+    "question": "The act of practicing a drama for a better performance is called",
+    "options": ["rehearsal", "playing", "get set", "playing music"],
+    "correct": "rehearsal",
+    "explanation": "Rehearsal is the process of practicing a performance before presenting it to an audience."
+  },
+  {
+    "question": "All these are activities involved in rehearsals except",
+    "options": ["acting", "reading", "prompting", "movement"],
+    "correct": "prompting",
+    "explanation": "Prompting is typically done during actual performance if an actor forgets lines, not primarily during rehearsal."
+  },
+  {
+    "question": "A raised area in a theatre where actors and actresses or singers stand when they perform is",
+    "options": ["stage", "alter", "raised ground", "field"],
+    "correct": "stage",
+    "explanation": "The stage is the designated performance area in a theater."
+  },
+  {
+    "question": "Clothes and other accessories worn by actors and actresses in a play or film is called",
+    "options": ["party wears", "costume", "gowns", "suits"],
+    "correct": "costume",
+    "explanation": "Costume refers to the clothing and accessories worn to portray a character."
+  },
+  {
+    "question": "A play that end with a sad note is",
+    "options": ["tragedy", "satire", "comedy", "antagonist"],
+    "correct": "tragedy",
+    "explanation": "A tragedy is a drama that ends in sorrow or disaster."
+  },
+  {
+    "question": "Rehearsal means",
+    "options": ["an exercise", "practice", "a performing exercise", "dance performance"],
+    "correct": "practice",
+    "explanation": "Rehearsal is the act of practicing for a performance."
+  },
+  {
+    "question": "Blockings, polishing, dress and technical, reading of scripts are ______ of rehearsal.",
+    "options": ["music", "stages", "improvisation", "theatre"],
+    "correct": "stages",
+    "explanation": "These are different stages or phases in the rehearsal process."
+  },
+  {
+    "question": "______ is when an actor or actress reads and commits his or her line to memory.",
+    "options": ["cues", "acting", "prompting", "reading"],
+    "correct": "reading",
+    "explanation": "In this context, reading and memorizing lines is a fundamental step for an actor."
+  },
+  {
+    "question": "Dramatist is also known as",
+    "options": ["actor", "actress", "character", "playwright"],
+    "correct": "playwright",
+    "explanation": "A dramatist or playwright writes plays."
+  },
+  {
+    "question": "______ add to the facial or body beauty of an actor or actress.",
+    "options": ["Make-over", "Make-up", "Costume"],
+    "correct": "Make-up",
+    "explanation": "Make-up enhances appearance and can be used to create character looks."
+  },
+  {
+    "question": "A person that writes play without getting involved in its production is",
+    "options": ["dramatist", "playwright", "director", "producer"],
+    "correct": "playwright",
+    "explanation": "A playwright writes scripts but may not be directly involved in staging the production."
+  },
+  {
+    "question": "The people that are behind the screen is called",
+    "options": ["crew", "cast", "audience"],
+    "correct": "crew",
+    "explanation": "The crew works behind the scenes on technical and production aspects."
+  },
+  {
+    "question": "A female character in a play is known as",
+    "options": ["actor", "actress", "crew", "audience"],
+    "correct": "actress",
+    "explanation": "An actress is a female performer."
+  },
+  {
+    "question": "Another name for polishing is called",
+    "options": ["run through", "super polishing", "costume", "dressing technical"],
+    "correct": "run through",
+    "explanation": "A run-through or polishing is a later rehearsal stage to refine the performance."
+  },
+  {
+    "question": "Painting of things that are made by God is called",
+    "options": ["Nature painting", "Life painting", "Still Life painting", "Cutel painting"],
+    "correct": "Nature painting",
+    "explanation": "Nature painting depicts natural scenery and objects created by God."
+  },
+  {
+    "question": "The production of art piece with broken bottles, pebbles, stones etc with adhesive is",
+    "options": ["Mosaic", "Collage", "Graphics", "Ceramics"],
+    "correct": "Mosaic",
+    "explanation": "Mosaic is art made from assembling small pieces of hard material."
+  },
+  {
+    "question": "Terracotta means?",
+    "options": ["Soaked clay", "Fired clay", "Bronze clay", "None of the above"],
+    "correct": "Fired clay",
+    "explanation": "Terracotta is clay-based ceramic that has been fired."
+  },
+  {
+    "question": "Where does an artist keep his/her paper work?",
+    "options": ["Folio", "Briefcase", "Bag", "Hand bag"],
+    "correct": "Folio",
+    "explanation": "A folio or portfolio is used to store and protect flat artworks."
+  },
+  {
+    "question": "The person that takes care of works kept in a museum is",
+    "options": ["A curator", "A care taker", "An artist", "A secretary"],
+    "correct": "A curator",
+    "explanation": "A curator manages and oversees collections in a museum."
+  },
+  {
+    "question": "Drawing, painting and sculpture are aspects under",
+    "options": ["Applied art", "Fine art", "Industrial art", "drama"],
+    "correct": "Fine art",
+    "explanation": "Fine arts are created primarily for aesthetic expression."
+  },
+  {
+    "question": "The process of making products such as pot, mug, tiles and so on is",
+    "options": ["graphic", "photography", "carving", "ceramics"],
+    "correct": "ceramics",
+    "explanation": "Ceramics is the art of making objects from clay."
+  },
+  {
+    "question": "______ is a notable town for cloth dyeing.",
+    "options": ["Lagos", "Awka", "Lokoja", "Abeokuta"],
+    "correct": "Abeokuta",
+    "explanation": "Abeokuta is famous in Nigeria for traditional tie-dye (adire) production."
+  },
+  {
+    "question": "The act of writing letter in a beautiful manner is",
+    "options": ["letter writing", "alphabet", "script", "calligraphy"],
+    "correct": "calligraphy",
+    "explanation": "Calligraphy is the art of beautiful handwriting."
+  },
+  {
+    "question": "Cross-hatching is a type of shading.",
+    "options": ["True", "False"],
+    "correct": "True",
+    "explanation": "Cross-hatching uses intersecting lines to create shading."
+  },
+  {
+    "question": "______ is one of the materials used in making soft toy.",
+    "options": ["Wooly fabric", "Squgee", "Chord", "Loom"],
+    "correct": "Wooly fabric",
+    "explanation": "Soft toys are commonly made from wooly or plush fabric."
+  },
+  {
+    "question": "Colour, line, texture etc are the ______ of art.",
+    "options": ["art", "elements", "principles", "chord"],
+    "correct": "elements",
+    "explanation": "These are the basic visual components or elements of art."
+  },
+  {
+    "question": "These colours: Red, Blue, Yellow are",
+    "options": ["Primary Colour", "Secondary Colour", "Tertiary Colour", "University Colour"],
+    "correct": "Primary Colour",
+    "explanation": "Red, blue, and yellow are primary colors from which other colors are mixed."
+  },
+  {
+    "question": "A unit part of a design is called",
+    "options": ["Pattern", "Motif", "Flour", "Grid", "None"],
+    "correct": "Motif",
+    "explanation": "A motif is a repeated distinctive feature or dominant idea in a design."
+  },
+  {
+    "question": "The drawing of human being refers to",
+    "options": ["Abstract", "Nature", "Life/figure", "General"],
+    "correct": "Life/figure",
+    "explanation": "Life or figure drawing depicts the human form."
+  },
+  {
+    "question": "Colours are classified into",
+    "options": ["two", "three", "four", "five", "six"],
+    "correct": "three",
+    "explanation": "Colors are generally classified into primary, secondary, and tertiary groups."
+  },
+  {
+    "question": "The attachment of shapes of cloth onto a large piece of cloth is called",
+    "options": ["stitching", "carving", "embroidery", "applique", "none"],
+    "correct": "applique",
+    "explanation": "Appliqué is a sewing technique where fabric shapes are sewn onto a larger piece."
+  },
+  {
+    "question": "A design transferred into a piece of clothing is",
+    "options": ["painting", "printing", "singing", "dancing"],
+    "correct": "printing",
+    "explanation": "Printing involves transferring a design onto fabric."
+  },
+  {
+    "question": "______ is the combination of organized sound that is pleasant to the ear.",
+    "options": ["Art", "Culture", "Music", "Noise"],
+    "correct": "Music",
+    "explanation": "Music is organized sound that is pleasing or meaningful."
+  },
+  {
+    "question": "The following are the uses of music except",
+    "options": ["transport", "advertisement", "worship", "ritual"],
+    "correct": "transport",
+    "explanation": "Music is not a means of physical transport."
+  },
+  {
+    "question": "______ is a series of note arranged in alphabetical order, moving in ascend and descending order.",
+    "options": ["Staff", "Beat", "Scale", "Rhythm"],
+    "correct": "Scale",
+    "explanation": "A scale is a sequence of notes ordered by pitch."
+  },
+  {
+    "question": "Another name for bass clef is",
+    "options": ["Fecl", "Cecl", "Eecl", "Gecl"],
+    "correct": "Fecl",
+    "explanation": "The bass clef is known as the F clef."
+  },
+  {
+    "question": "The durational value of a semibreve note is",
+    "options": ["7", "4", "2", "5"],
+    "correct": "4",
+    "explanation": "A semibreve receives 4 beats in common time."
+  },
+  {
+    "question": "A great staff consists of ______ lines and ______ spaces.",
+    "options": ["5,4", "10,12", "11,10", "6,5"],
+    "correct": "11,10",
+    "explanation": "The great staff combines treble and bass clefs, totaling 11 lines and 10 spaces."
+  },
+  {
+    "question": "The family of African musical instruments that produce sound with help of Animal skin are called",
+    "options": ["Idiophone", "Membranophone", "Chordphone", "Eletrophone"],
+    "correct": "Membranophone",
+    "explanation": "Membranophones use stretched animal skins to produce sound."
+  },
+  {
+    "question": "______ is the musical instrument used for announcement and to call people's attention.",
+    "options": ["Omele", "Gangan", "Oja", "Agogo"],
+    "correct": "Gangan",
+    "explanation": "The Gangan is a talking drum used for communication."
+  },
+  {
+    "question": "A triad is built on the root, major 3rd and perfect 5th.",
+    "options": ["diminished", "minor", "Perfect", "major"],
+    "correct": "major",
+    "explanation": "A major triad consists of a root, major third, and perfect fifth."
+  },
+  {
+    "question": "______ and ______ was the Baroque period.",
+    "options": ["1985,2010", "250,570", "1600,1750", "1600,1920"],
+    "correct": "1600,1750",
+    "explanation": "The Baroque period in music and art roughly spans 1600 to 1750."
+  },
+  {
+    "question": "A perfect cadence is chord ______ to ______.",
+    "options": ["v- vi", "iv- v", "ii- iii", "v- i"],
+    "correct": "v- i",
+    "explanation": "A perfect cadence is the chord progression V to I."
+  },
+  {
+    "question": "A Staff consists of ______ lines and ______ spaces.",
+    "options": ["5,4", "2,1", "5,3", "3,2"],
+    "correct": "5,4",
+    "explanation": "A standard staff has 5 lines and 4 spaces."
+  },
+  {
+    "question": "All are the activities involved in rehearsal except",
+    "options": ["movement", "acting", "reading", "jumping"],
+    "correct": "jumping",
+    "explanation": "Jumping is not a standard rehearsal activity unless specifically choreographed."
+  },
+  {
+    "question": "The two types of makeup are ______ and ______.",
+    "options": ["straight curve", "curve and bend", "straight and foundation", "curve and corner"],
+    "correct": "straight and foundation",
+    "explanation": "Stage makeup often involves straight makeup and foundation application."
+  },
+  {
+    "question": "Another name for f clef is",
+    "options": ["stave", "staff", "bass", "treble"],
+    "correct": "bass",
+    "explanation": "The F clef is commonly called the bass clef."
+  },
+  {
+    "question": "Music can be produced when the sound is ______ to the ear.",
+    "options": ["pleasant", "voice", "noise", "irregular"],
+    "correct": "pleasant",
+    "explanation": "Music is generally considered organized sound that is pleasant or meaningful."
+  },
+  {
+    "question": "A triad is a chord with only ______ note(s).",
+    "options": ["5", "4", "3", "7"],
+    "correct": "3",
+    "explanation": "A triad consists of exactly three notes."
+  },
+  {
+    "question": "______ is the vertical distance between two or more note in music.",
+    "options": ["Interval", "Chord", "Scale", "Arpeggio"],
+    "correct": "Interval",
+    "explanation": "An interval is the pitch distance between notes."
+  },
+  {
+    "question": "Keyboard has ______ and ______ sessions of keys.",
+    "options": ["white and black", "white and blue", "white and wine", "white and green"],
+    "correct": "white and black",
+    "explanation": "A standard piano keyboard has white and black keys."
+  },
+  {
+    "question": "______ music is used to send babies to sleep.",
+    "options": ["Healing", "Lullaby", "Festival", "Relaxation"],
+    "correct": "Lullaby",
+    "explanation": "A lullaby is a soothing song for putting children to sleep."
+  },
+  {
+    "question": "Which of the following Nigerian Artist is regarded as the father of contemporary/modern art in Nigeria?",
+    "options": ["Ben Enwonwu", "Jerry Musa", "Uche Okeke", "Aina Onabolu"],
+    "correct": "Aina Onabolu",
+    "explanation": "Aina Onabolu is credited with pioneering modern art education in Nigeria."
+  },
+  {
+    "question": "______ is a means of self-expression of inner emotion idea and thought.",
+    "options": ["Creative Art", "Non-Visual Art", "Art", "Liberal Art"],
+    "correct": "Art",
+    "explanation": "Art is a broad form of human expression."
+  },
+  {
+    "question": "______ is the art of displaying artworks such as paintings, sculptures, ceramics e.t.c. for public consumption.",
+    "options": ["Exhibit", "Exhibit", "Excursion", "Exhibition"],
+    "correct": "Exhibition",
+    "explanation": "An exhibition is a public display of art."
+  },
+  {
+    "question": "The basic unit of design or pattern is",
+    "options": ["natural objects", "designed objects", "compressed design", "motif"],
+    "correct": "motif",
+    "explanation": "A motif is the fundamental repeating unit in a design."
+  },
+  {
+    "question": "______ is the African and Nigerian oldest Art form ever to be found.",
+    "options": ["Ife Art", "Igbo-Ukwu Art", "Nok Art", "Benin Art"],
+    "correct": "Nok Art",
+    "explanation": "Nok culture is one of the earliest known art-producing civilizations in Nigeria."
+  },
+  {
+    "question": "A specially designed building where artworks are displayed or exhibited for commercial and historical purposes is",
+    "options": ["Studio", "Museum", "Theatre", "Stage"],
+    "correct": "Museum",
+    "explanation": "A museum houses and exhibits artifacts and artworks."
+  },
+  {
+    "question": "______ is another name for light and shade.",
+    "options": ["Shadow", "Stumate", "Contraposto", "Chiaroscuro"],
+    "correct": "Chiaroscuro",
+    "explanation": "Chiaroscuro is the treatment of light and shade in drawing and painting."
+  },
+  {
+    "question": "The Technique of painting or shading a picture with dot is called",
+    "options": ["Pointillism", "Cross hatching", "Rubbing", "Blurring"],
+    "correct": "Pointillism",
+    "explanation": "Pointillism uses small dots of color to create an image."
+  },
+  {
+    "question": "Papier Mache is used in Sculpture for",
+    "options": ["painting", "design", "modeling", "carving"],
+    "correct": "modeling",
+    "explanation": "Papier-mâché is a modeling material made of paper pulp and adhesive."
+  },
+  {
+    "question": "A person who does work of art in stone, wood and marble is",
+    "options": ["Designer", "Painter", "Sculpture", "Artism"],
+    "correct": "Sculpture",
+    "explanation": "A sculptor creates three-dimensional artworks from hard materials."
+  },
+  {
+    "question": "A place where work of art are kept and preserved is",
+    "options": ["museum", "studio", "workshop", "gallery"],
+    "correct": "museum",
+    "explanation": "Museums preserve and protect artworks and historical objects."
+  },
+  {
+    "question": "The mixture of one primary and one Secondary colour will result into",
+    "options": ["secondary", "primary", "tertiary", "neutral"],
+    "correct": "tertiary",
+    "explanation": "Mixing a primary and a secondary color creates a tertiary color."
+  },
+  {
+    "question": "Pencil is for drawing as brush is for",
+    "options": ["booming", "painting", "ink", "pallets knife"],
+    "correct": "painting",
+    "explanation": "A brush is the primary tool for applying paint."
+  },
+  {
+    "question": "The period before event were recorded is",
+    "options": ["pre- historic", "wanderers", "Egyptian", "history"],
+    "correct": "pre- historic",
+    "explanation": "Prehistory refers to the time before written records."
+  },
+  {
+    "question": "The father of the Nigerian modern and contemporary art is",
+    "options": ["Pa Aina Onabolu", "Hubert Ogunde", "Ben Enwowu", "Ladi Kwali"],
+    "correct": "Pa Aina Onabolu",
+    "explanation": "Aina Onabolu is widely regarded as the father of modern Nigerian art."
+  },
+  {
+    "question": "The neutral colours are ______ and ______.",
+    "options": ["black and blue", "black and red", "black and yellow", "black and white"],
+    "correct": "black and white",
+    "explanation": "Black and white are considered neutral colors."
+  },
+  {
+    "question": "Another name for colours is called",
+    "options": ["hue", "impasto", "colour", "paint"],
+    "correct": "hue",
+    "explanation": "Hue is the attribute of a color by which it is discernible as red, blue, etc."
+  },
+  {
+    "question": "Drawing of human being is called",
+    "options": ["Life drawing", "Still life drawing", "Landscape drawing", "Nature drawing"],
+    "correct": "Life drawing",
+    "explanation": "Life drawing specifically refers to drawing the human figure."
+  },
+  {
+    "question": "A painting or design done on a wall is known as",
+    "options": ["Opaque", "Mural", "wall design", "Impasto"],
+    "correct": "Mural",
+    "explanation": "A mural is artwork painted directly on a wall."
+  },
+  {
+    "question": "______ is one of the quality of a good lettering.",
+    "options": ["Harmony", "Quantity", "Value", "Legibility"],
+    "correct": "Legibility",
+    "explanation": "Good lettering must be legible and easy to read."
+  },
+  {
+    "question": "______ is an act form in which series of events usually carries out.",
+    "options": ["theatre", "stadium", "stadia", "drama production"],
+    "correct": "drama production",
+    "explanation": "Drama production involves staging a series of events or a story."
+  },
+  {
+    "question": "______ is defined as an art form that tells a story through a speech and action.",
+    "options": ["Story", "Drama", "Play"],
+    "correct": "Drama",
+    "explanation": "Drama is enacted storytelling using dialogue and action."
+  },
+  {
+    "question": "______ and ______ are forms of art.",
+    "options": ["Design and drama", "Desire and display", "Drama and theatre"],
+    "correct": "Drama and theatre",
+    "explanation": "Drama and theatre are closely related performing art forms."
+  },
+  {
+    "question": "Dance drama is a process where ______ is used as a major mean of expression.",
+    "options": ["rhythm", "speech", "dance", "music"],
+    "correct": "dance",
+    "explanation": "In dance drama, dance is the primary mode of storytelling."
+  },
+  {
+    "question": "These are the element of drama except",
+    "options": ["screen", "script", "plot"],
+    "correct": "screen",
+    "explanation": "Screen is not a fundamental element of drama; plot and script are."
+  },
+  {
+    "question": "Tragedy can be best described as a serious play with a ______ ending.",
+    "options": ["good", "sad", "thought", "pleasant"],
+    "correct": "sad",
+    "explanation": "Tragedy typically concludes with an unhappy or catastrophic ending."
+  },
+  {
+    "question": "Rehearsal is done at what time of a play?",
+    "options": ["Towards the end of a play", "Before a play", "During the play"],
+    "correct": "Before a play",
+    "explanation": "Rehearsals take place before the actual performance to prepare."
+  },
+  {
+    "question": "______ is the drama written down on paper as script or literature that can be acted on stage.",
+    "options": ["Unscripted", "Unwritten", "Scripted", "All of the above"],
+    "correct": "Scripted",
+    "explanation": "Scripted drama has a written text."
+  },
+  {
+    "question": "Mime is the acting out of a story through body motions without use of speech such performance is referred to as",
+    "options": ["speaker", "dancer", "mimer", "gesture"],
+    "correct": "mimer",
+    "explanation": "A mime or mimer performs without spoken words."
+  },
+  {
+    "question": "In drama production, ______ is in charge of administration.",
+    "options": ["producer", "director", "stage manager", "sound manager"],
+    "correct": "producer",
+    "explanation": "The producer handles the business and administrative aspects of a production."
+  },
+  {
+    "question": "The ______ develops the idea for a production.",
+    "options": ["director", "producer", "actor", "advert manager"],
+    "correct": "director",
+    "explanation": "The director interprets the script and guides the creative vision."
+  },
+  {
+    "question": "______ ensures that rehearsals are carried on schedule.",
+    "options": ["stage manager", "cast", "light manager", "arena manager"],
+    "correct": "stage manager",
+    "explanation": "The stage manager organizes rehearsals and ensures schedules are met."
+  },
+  {
+    "question": "______ is done without gestures or demonstrations.",
+    "options": ["movement", "acting", "communication", "reading"],
+    "correct": "reading",
+    "explanation": "In this context, reading lines is distinct from physical gesturing."
+  },
+  {
+    "question": "The first stage in any rehearsal is",
+    "options": ["acting", "expression", "reading", "communication"],
+    "correct": "reading",
+    "explanation": "Rehearsals often begin with a read-through of the script."
+  },
+  {
+    "question": "The people behind the screen are called",
+    "options": ["cast", "crew", "audience", "spectator"],
+    "correct": "crew",
+    "explanation": "The crew works behind the scenes."
+  },
+  {
+    "question": "The last stage of rehearsal is",
+    "options": ["reading", "blocking", "dress and technical", "movement"],
+    "correct": "dress and technical",
+    "explanation": "Dress and technical rehearsals are the final stage before performance."
+  },
+  {
+    "question": "In drama rehearsal, ______ assist the director.",
+    "options": ["stage manager", "assistant", "director", "crew"],
+    "correct": "stage manager",
+    "explanation": "The stage manager assists the director during rehearsals."
+  },
+  {
+    "question": "What is fine art?",
+    "options": ["Art is self-expression", "Art is driving a car", "Art is drawing alone", "All of the above"],
+    "correct": "Art is self-expression",
+    "explanation": "Fine art is a form of creative self-expression."
+  },
+  {
+    "question": "Fine art can be classified into",
+    "options": ["2", "4", "3", "1"],
+    "correct": "2",
+    "explanation": "Fine art is often broadly classified into visual and non-visual arts."
+  },
+  {
+    "question": "Graphic design is an aspect of",
+    "options": ["fine art", "lettering", "liberal", "applied art"],
+    "correct": "applied art",
+    "explanation": "Graphic design is considered applied art as it has a functional purpose."
+  },
+  {
+    "question": "______ is one of the chemical used for dyeing.",
+    "options": ["Surf", "Hydro sulphate", "Colouring", "Oxygen"],
+    "correct": "Hydro sulphate",
+    "explanation": "Hydro sulphate is a chemical used in the dyeing process."
+  },
+  {
+    "question": "______ is a notable centre for cloth dyeing.",
+    "options": ["Ibadan", "Abekuta", "Ilorin", "Kwara"],
+    "correct": "Abekuta",
+    "explanation": "Abeokuta is famous for adire cloth dyeing."
+  },
+  {
+    "question": "______ is used for carving.",
+    "options": ["Mallet", "Pallete knife", "Cutlass", "Loan"],
+    "correct": "Mallet",
+    "explanation": "A mallet is a tool used with chisels for carving."
+  },
+  {
+    "question": "Mat weaving is a craft prominent in",
+    "options": ["Calabar", "Badagry", "Epe", "Ikorodu"],
+    "correct": "Badagry",
+    "explanation": "Badagry is known for traditional mat weaving."
+  },
+  {
+    "question": "Stone carving is practiced by the ______ people.",
+    "options": ["Edo", "Ogun", "Esie", "Ibo"],
+    "correct": "Esie",
+    "explanation": "Esie is known for ancient stone carvings."
+  },
+  {
+    "question": "The visual expression of idea, emotion and feeling with the uses of lines in a given surface is called",
+    "options": ["painting", "drawing", "value", "variety"],
+    "correct": "drawing",
+    "explanation": "Drawing uses lines to create visual expression."
+  },
+  {
+    "question": "All these are types of drawing except",
+    "options": ["life/figure drawing", "nature drawing", "still life drawing", "house drawing"],
+    "correct": "house drawing",
+    "explanation": "House drawing is a specific subject, not a broad category like life or nature drawing."
+  },
+  {
+    "question": "Art means",
+    "options": ["a painter", "self- expression", "hunter", "a great man"],
+    "correct": "self- expression",
+    "explanation": "Art is a means of expressing one's ideas and emotions."
+  },
+  {
+    "question": "An act of beautiful writing is",
+    "options": ["calligraphy", "semi-tone", "photography", "typography"],
+    "correct": "calligraphy",
+    "explanation": "Calligraphy is decorative handwriting."
+  },
+  {
+    "question": "Paper mache is used in",
+    "options": ["graphic design", "drawing", "modeling/sculpture", "basic design"],
+    "correct": "modeling/sculpture",
+    "explanation": "Papier-mâché is used to model three-dimensional forms."
+  },
+  {
+    "question": "Motif is used in",
+    "options": ["graphic", "sculpture", "design", "painting"],
+    "correct": "design",
+    "explanation": "A motif is a recurring element in design."
+  },
+  {
+    "question": "A common characteristics features of life art work is",
+    "options": ["ceremony", "triangle", "scarification", "a piece shape"],
+    "correct": "scarification",
+    "explanation": "Scarification is a common feature in traditional African life art."
+  },
+  {
+    "question": "The process of mixing clay is known as",
+    "options": ["pounding", "arranging", "kneading", "rolling"],
+    "correct": "kneading",
+    "explanation": "Kneading clay removes air bubbles and ensures uniform consistency."
+  },
+  {
+    "question": "A design transferred into a piece of clothing is",
+    "options": ["painting", "printing", "singing", "dancing"],
+    "correct": "printing",
+    "explanation": "Printing transfers designs onto fabric."
+  },
+  {
+    "question": "______ drawing includes chair, table, bag etc.",
+    "options": ["Imaginative", "Still life", "Nature", "Life"],
+    "correct": "Still life",
+    "explanation": "Still life depicts inanimate everyday objects."
+  },
+  {
+    "question": "The drawing of plant and animal is referred to as ______ drawing.",
+    "options": ["nature", "still life", "life", "landscape"],
+    "correct": "nature",
+    "explanation": "Nature drawing focuses on plants, animals, and natural scenes."
+  },
+  {
+    "question": "Colour, line, texture etc, are the ______ of art.",
+    "options": ["element", "principle", "categories", "origin"],
+    "correct": "element",
+    "explanation": "These are the basic elements of visual art."
+  },
+  {
+    "question": "______ is the vertical distance between two or more note in music.",
+    "options": ["Chord", "Interval", "Arpeggio", "Scale"],
+    "correct": "Interval",
+    "explanation": "Interval measures pitch difference."
+  },
+  {
+    "question": "A chromatic scale is a scale of ______ note moving in semitones interval all through.",
+    "options": ["thirteen", "ten", "eight", "six"],
+    "correct": "thirteen",
+    "explanation": "A chromatic scale consists of 12 pitches plus the octave, totaling 13 notes."
+  },
+  {
+    "question": "Diatonic scale is sub - divided into",
+    "options": ["diminished, augment", "major, perfect", "ascending, descending", "major, minor"],
+    "correct": "major, minor",
+    "explanation": "Diatonic scales are categorized as major or minor."
+  },
+  {
+    "question": "A primary triad of a major scale have their roots on the following degree.",
+    "options": ["Tonic, supertonic and mediant", "Tonic, supertonic and dominant", "Tonic, subdominant and dominant", "Tonic, supertonic and leading note"],
+    "correct": "Tonic, subdominant and dominant",
+    "explanation": "Primary triads are built on the 1st, 4th, and 5th degrees."
+  },
+  {
+    "question": "A triad consists of ______ interval.",
+    "options": ["root, 2nd and 5th", "root, 3rd and 7th", "root, 3rd and 6th", "root, 3rd and 5th"],
+    "correct": "root, 3rd and 5th",
+    "explanation": "A triad is a three-note chord with a root, third, and fifth."
+  },
+  {
+    "question": "A perfect Fifth above E is",
+    "options": ["B", "A", "B", "C"],
+    "correct": "B",
+    "explanation": "B is a perfect fifth above E."
+  },
+  {
+    "question": "A triad with a root, major 3rd and augment 5th interval is said to be ______ triad.",
+    "options": ["major", "augmented", "chromatic", "pentatonic"],
+    "correct": "augmented",
+    "explanation": "An augmented triad has a raised fifth."
+  },
+  {
+    "question": "The sharp and flats occurring in the course of a piece of music apart from those in the key signature are called",
+    "options": ["chromatic", "en - harmonic", "accidental", "diatonic"],
+    "correct": "accidental",
+    "explanation": "Accidentals are sharps, flats, or naturals not in the key signature."
+  },
+  {
+    "question": "______ constitutes the key signature for the scale of D major.",
+    "options": ["F and C", "F and B", "F and G", "C and G"],
+    "correct": "F and C",
+    "explanation": "D major has two sharps: F# and C#."
+  },
+  {
+    "question": "A major key with the signature of one flat is said to be ______ major.",
+    "options": ["D", "A", "D", "F"],
+    "correct": "F",
+    "explanation": "F major has one flat (B♭)."
+  },
+  {
+    "question": "The attachment of shapes of cloth onto a large piece of cloth is called",
+    "options": ["stitching", "carving", "embroidery", "applyne"],
+    "correct": "applyne",
+    "explanation": "Appliqué is the correct term for this technique."
+  },
+  {
+    "question": "People's culture includes all except",
+    "options": ["belief", "wealth", "religion", "language"],
+    "correct": "wealth",
+    "explanation": "Wealth is an economic factor, not a direct component of culture."
+  },
+  {
+    "question": "One of these is not a material for mosaic.",
+    "options": ["Pebbles", "Rulers", "Pen", "Glue"],
+    "correct": "Pen",
+    "explanation": "A pen is not a material used to create mosaic pieces."
+  },
+  {
+    "question": "______ is a scale of eight notes build on the sixth degree of the key signature.",
+    "options": ["Dominant", "Chromatic", "Minor", "Major"],
+    "correct": "Minor",
+    "explanation": "The natural minor scale starts on the sixth degree of the major scale."
+  },
+  {
+    "question": "The tonic of a minor scale is",
+    "options": ["lah", "dho", "min", "ray"],
+    "correct": "lah",
+    "explanation": "In solfa notation, the tonic of the minor scale is 'lah'."
+  },
+  {
+    "question": "The following are types of minor scale except",
+    "options": ["melodic", "natural", "harmonic", "cadence"],
+    "correct": "cadence",
+    "explanation": "Cadence is a chord progression, not a scale type."
+  },
+  {
+    "question": "The regular movement of sound, time and space is called",
+    "options": ["rhythm", "tune", "time signature", "analysis"],
+    "correct": "rhythm",
+    "explanation": "Rhythm is the pattern of movement in music."
+  },
+  {
+    "question": "The smallest distance between two notes on the keyboard is called",
+    "options": ["Flat", "semitone", "sharp", "natural"],
+    "correct": "semitone",
+    "explanation": "A semitone is the smallest standard interval in Western music."
+  },
+  {
+    "question": "A tone is made up of ______ semitones.",
+    "options": ["two", "one", "three", "four"],
+    "correct": "two",
+    "explanation": "A whole tone equals two semitones."
+  },
+  {
+    "question": "What is the value of a semibreve?",
+    "options": ["4 beats", "2 beats", "8 beats", "1 beat"],
+    "correct": "4 beats",
+    "explanation": "A semibreve (whole note) equals 4 beats in common time."
+  },
+  {
+    "question": "Keyboard has ______ and ______ keys.",
+    "options": ["white, wine", "white, green", "white, black", "white, blues"],
+    "correct": "white, black",
+    "explanation": "A keyboard has white and black keys."
+  },
+  {
+    "question": "The culture that reflects African, Islamic and European influence.",
+    "options": ["Nigeria", "Ibbio", "Egyptian", "Cameroonian"],
+    "correct": "Nigeria",
+    "explanation": "Nigerian culture is a blend of African, Islamic, and European influences."
+  },
+  {
+    "question": "The Nigeria's official language is the ______ language.",
+    "options": ["Native", "Ibbio", "Pidgin", "English"],
+    "correct": "English",
+    "explanation": "English is the official language of Nigeria."
+  },
+  {
+    "question": "______ is the raw materials for basketry.",
+    "options": ["Clay", "Cloth", "Cane", "Akwete"],
+    "correct": "Cane",
+    "explanation": "Cane and rattan are common materials for basketry."
+  },
+  {
+    "question": "______ work is a three dimensional art.",
+    "options": ["Building", "Caves", "Home", "Room"],
+    "correct": "Building",
+    "explanation": "Architecture and building are three-dimensional art forms."
+  },
+  {
+    "question": "The early men resting place where",
+    "options": ["building", "caves"],
+    "correct": "caves",
+    "explanation": "Early humans often lived and created art in caves."
+  },
+  {
+    "question": "Most of the painting of the early men were done on the wall and ceiling of the",
+    "options": ["home", "room", "caves", "none"],
+    "correct": "caves",
+    "explanation": "Cave paintings are among the earliest known art forms."
+  },
+  {
+    "question": "One of the following is a medium for painting.",
+    "options": ["Postal colour", "Store", "Wood", "Marble"],
+    "correct": "Postal colour",
+    "explanation": "Poster color is a common painting medium."
+  },
+  {
+    "question": "______ water is used to prepare dye stuff.",
+    "options": ["Cold", "Hot", "Paste", "Starch"],
+    "correct": "Hot",
+    "explanation": "Hot water is typically used to dissolve and activate dyes."
+  },
+  {
+    "question": "______ is associated with pottery.",
+    "options": ["Clay", "Dye", "Cloth", "Skin"],
+    "correct": "Clay",
+    "explanation": "Pottery is made from clay."
+  },
+  {
+    "question": "______ is one of the materials used for the production of ties and dye.",
+    "options": ["Raffia", "Clay", "Wood", "Metal"],
+    "correct": "Raffia",
+    "explanation": "Raffia is used to tie fabric in tie-dye processes."
+  },
+  {
+    "question": "Colours are classified into",
+    "options": ["two", "three", "four", "five"],
+    "correct": "three",
+    "explanation": "Primary, secondary, and tertiary are the three main classifications."
+  },
+  {
+    "question": "All these are techniques of drama except",
+    "options": ["romans", "playwriting", "story telling", "improvisation"],
+    "correct": "romans",
+    "explanation": "'Romans' is not a recognized drama technique."
+  },
+  {
+    "question": "Drama personal is divided into ______ and ______.",
+    "options": ["cast, crew", "cast, audience", "dance, singing", "clef, sharp"],
+    "correct": "cast, crew",
+    "explanation": "Drama personnel consist of the cast (performers) and crew (technical staff)."
+  },
+  {
+    "question": "Dance drama is a drama performed through",
+    "options": ["evaluation", "dialogue", "frequent", "gesture"],
+    "correct": "gesture",
+    "explanation": "Dance drama uses expressive movement and gesture to tell a story."
+  },
+  {
+    "question": "______ is the personification of a drama on stage.",
+    "options": ["Theatre", "Treasure", "Teaching", "Tithing"],
+    "correct": "Theatre",
+    "explanation": "Theatre is the live performance of a drama."
+  },
+  {
+    "question": "______ and ______ are two basic form of drama.",
+    "options": ["Sacred, secular", "Scripted, non- scripted", "Creation, non- creation", "Creative, construction"],
+    "correct": "Scripted, non- scripted",
+    "explanation": "Drama can be scripted (written) or non-scripted (improvised)."
+  },
+  {
+    "question": "Professor Wole Soyinka is one of the renowned playwrights in Africa; he is a Nigerian from ______ state.",
+    "options": ["Lagos", "Ekiti", "Ogun", "Oyo"],
+    "correct": "Ogun",
+    "explanation": "Wole Soyinka hails from Ogun State."
+  },
+  {
+    "question": "______ is the person that prompts lines if forgotten on the scene.",
+    "options": ["Actor", "Actress", "Crew", "Cast"],
+    "correct": "Crew",
+    "explanation": "A prompter is part of the crew."
+  },
+  {
+    "question": "Fine art can be defined as",
+    "options": ["beautiful things", "creative expression of skills and emotions in us", "decoration", "useful things"],
+    "correct": "creative expression of skills and emotions in us",
+    "explanation": "Fine art is primarily about creative and emotional expression."
+  },
+  {
+    "question": "Art means",
+    "options": ["a painter", "self-expression", "a great man", "a hunter"],
+    "correct": "self-expression",
+    "explanation": "Art is a medium for expressing oneself."
+  },
+  {
+    "question": "An act of beautiful writing is",
+    "options": ["calligraphy", "semi-tone", "photography", "typography"],
+    "correct": "calligraphy",
+    "explanation": "Calligraphy is decorative handwriting."
+  },
+  {
+    "question": "Paper mache is used in",
+    "options": ["graphic design", "drawing", "modeling or sculpture", "basic design"],
+    "correct": "modeling or sculpture",
+    "explanation": "Papier-mâché is a sculptural modeling material."
+  },
+  {
+    "question": "Motif is used in",
+    "options": ["graphics", "sculpture", "design", "painting"],
+    "correct": "design",
+    "explanation": "A motif is a recurring thematic element in design."
+  },
+  {
+    "question": "A common characteristic features of life Art work is",
+    "options": ["ceremony", "scarification", "a piece shape"],
+    "correct": "scarification",
+    "explanation": "Scarification is a common feature in traditional African life art."
+  },
+  {
+    "question": "The process of mixing clay is known as",
+    "options": ["pounding", "arranging", "kneading", "rolling"],
+    "correct": "kneading",
+    "explanation": "Kneading prepares clay for use."
+  },
+  {
+    "question": "A design is transferred into a piece of clothing",
+    "options": ["painting", "printing", "singing", "dancing"],
+    "correct": "printing",
+    "explanation": "Printing transfers designs onto fabric."
+  },
+  {
+    "question": "People that are involved in the production of a drama/play is known as",
+    "options": ["Editor in Chief", "Cast and Crew", "Team worker", "All of the above"],
+    "correct": "Cast and Crew",
+    "explanation": "Cast and crew are the primary personnel in drama production."
+  },
+  {
+    "question": "The people that are behind the screen is called",
+    "options": ["cast", "crew", "audience", "drama personal"],
+    "correct": "crew",
+    "explanation": "The crew works behind the scenes."
+  },
+  {
+    "question": "______ is a script that helps the actor and actress to prepare for the response or speeches in the drama play.",
+    "options": ["Life speech", "Reading", "Polishing", "None of the above"],
+    "correct": "Reading",
+    "explanation": "The script provides the lines for reading and memorization."
+  },
+  {
+    "question": "Act of coming together of actor/actress in order to practice the drama piece before the final presentation is called",
+    "options": ["re-practice", "rehearsal", "reading", "all of the above"],
+    "correct": "rehearsal",
+    "explanation": "Rehearsal is the practice session for a performance."
+  },
+  {
+    "question": "All are the activities involved in the rehearsal except",
+    "options": ["movement", "acting", "reading", "jumping"],
+    "correct": "jumping",
+    "explanation": "Jumping is not a standard rehearsal activity unless specified."
+  },
+  {
+    "question": "The two types of make-up are ______ and ______.",
+    "options": ["straight and curve", "curve and bend", "straight and foundation", "curve"],
+    "correct": "straight and foundation",
+    "explanation": "Straight makeup enhances natural features; foundation is the base layer."
+  },
+  {
+    "question": "A ______ is event that forms the main story of a book, film or play.",
+    "options": ["dance", "fiction", "characterization", "setting"],
+    "correct": "fiction",
+    "explanation": "The plot of a play is a fictional sequence of events."
+  },
+  {
+    "question": "The first stage in any rehearsal is",
+    "options": ["reading", "blocking", "movement", "dancing"],
+    "correct": "reading",
+    "explanation": "Rehearsals usually start with reading the script."
+  },
+  {
+    "question": "Another name for polishing is called",
+    "options": ["super polishing", "run-through", "dressing technical", "costume"],
+    "correct": "run-through",
+    "explanation": "A run-through or polishing is a later rehearsal to refine the play."
+  },
+  {
+    "question": "All these are crew members except",
+    "options": ["set designers", "advert manager", "technical director", "actress"],
+    "correct": "actress",
+    "explanation": "An actress is part of the cast, not the crew."
+  },
+  {
+    "question": "Impromptu drama is called",
+    "options": ["scripted drama", "written drama", "unscripted drama", "dance"],
+    "correct": "unscripted drama",
+    "explanation": "Impromptu means improvised, without a script."
+  },
+  {
+    "question": "A staff consists of ______ lines and ______ spaces.",
+    "options": ["5, 4", "5, 3", "2, 1", "3, 2"],
+    "correct": "5, 4",
+    "explanation": "A musical staff has five lines and four spaces."
+  },
+  {
+    "question": "Another name for 'f' clef is ______ clef.",
+    "options": ["stave", "staff", "bass", "treble"],
+    "correct": "bass",
+    "explanation": "The F clef is known as the bass clef."
+  },
+  {
+    "question": "A western music that comprises all families of instrument is called",
+    "options": ["orchestra", "band", "choir", "chamber"],
+    "correct": "orchestra",
+    "explanation": "An orchestra includes strings, woodwinds, brass, and percussion families."
+  },
+  {
+    "question": "Musical instrument consists of ______ letters.",
+    "options": ["8", "6", "4", "2"],
+    "correct": "8",
+    "explanation": "The musical alphabet uses the first seven letters A-G; the octave repeats the first letter, making eight notes."
+  },
+  {
+    "question": "Music can be produced when the sound is ______ to the ear.",
+    "options": ["pleasant", "voice", "noise", "irregular"],
+    "correct": "pleasant",
+    "explanation": "Music is typically organized, pleasant sound."
+  },
+  {
+    "question": "Drama teaches us all, except",
+    "options": ["handwork", "tolerance", "laziness", "obedience"],
+    "correct": "laziness",
+    "explanation": "Drama promotes positive values, not laziness."
+  },
+  {
+    "question": "A male cast is known as",
+    "options": ["cast", "crew", "actress", "actor"],
+    "correct": "actor",
+    "explanation": "An actor is a male performer."
+  },
+  {
+    "question": "The cast, crew and ______ are the three major group involved in drama theatre production.",
+    "options": ["producer", "stage manager", "audience", "director"],
+    "correct": "audience",
+    "explanation": "The audience is essential for the completion of the theatrical experience."
+  },
+  {
+    "question": "______ and ______ are often used in dance drama.",
+    "options": ["music, song", "mimic, dance", "action, dance", "song, story"],
+    "correct": "music, song",
+    "explanation": "Music and song frequently accompany dance drama."
+  },
+  {
+    "question": "Music drama is known as",
+    "options": ["dance drama", "opera", "comedy", "none"],
+    "correct": "opera",
+    "explanation": "Opera is a dramatic work set to music."
+  },
+  {
+    "question": "A triad is a chord with only ______ notes.",
+    "options": ["5", "4", "3", "7"],
+    "correct": "3",
+    "explanation": "A triad contains three notes."
+  },
+  {
+    "question": "Sound is what we hear with our",
+    "options": ["nose", "mouth", "head", "ear"],
+    "correct": "ear",
+    "explanation": "Sound is perceived by the ears."
+  },
+  {
+    "question": "______ is the music used to set a baby asleep.",
+    "options": ["relation song", "relaxation", "lullaby", "none"],
+    "correct": "lullaby",
+    "explanation": "A lullaby soothes babies to sleep."
+  },
+  {
+    "question": "______ are signs written at the beginning of a staff or staves.",
+    "options": ["treble", "clefs", "music", "sound"],
+    "correct": "clefs",
+    "explanation": "Clefs are symbols placed at the beginning of the staff to indicate pitch."
+  },
+  {
+    "question": "______ is used for entertainment.",
+    "options": ["Stage manager", "Music", "Director", "Actor"],
+    "correct": "Music",
+    "explanation": "Music is a common form of entertainment."
+  },
+  {
+    "question": "A female character in a play is known as",
+    "options": ["actor", "actress", "a and b", "none"],
+    "correct": "actress",
+    "explanation": "An actress is a female performer."
+  },
+  {
+    "question": "A person that directs actors and actresses as regard speech, action and movement is",
+    "options": ["epilogue", "rehearsal", "director", "none"],
+    "correct": "director",
+    "explanation": "The director guides the performance."
+  },
+  {
+    "question": "______ is the stage where the play/drama is turned to remove errors and fine imperfections after many rehearsal before the final presentation.",
+    "options": ["Blocking", "Dress to technical", "Polishing", "None"],
+    "correct": "Polishing",
+    "explanation": "Polishing is the refinement stage of rehearsal."
+  },
+  {
+    "question": "______ is in- charge of administration in drama production.",
+    "options": ["Director", "Actor", "Stage manager", "Set designer"],
+    "correct": "Stage manager",
+    "explanation": "The stage manager handles administrative and organizational tasks during production."
+  },
+  {
+    "question": "In drama rehearsal ______ assists the director.",
+    "options": ["actor", "cast", "stage manager", "crew"],
+    "correct": "stage manager",
+    "explanation": "The stage manager is the director's primary assistant in rehearsal."
+  },
+  {
+    "question": "A costumia is a",
+    "options": ["a director", "custodian", "a person in- charge of costume", "an actor"],
+    "correct": "a person in- charge of costume",
+    "explanation": "The costumier manages costumes for a production."
+  },
+  {
+    "question": "A raised area in a theatre where actors and actresses stand to perform play/drama is called",
+    "options": ["stage", "altar", "raised ground", "none"],
+    "correct": "stage",
+    "explanation": "The stage is the performance area."
+  },
+  {
+    "question": "Clothes and other accessories worn by actors and actresses in a play is called",
+    "options": ["costume", "gown", "dress technical", "none"],
+    "correct": "costume",
+    "explanation": "Costumes define character and period."
+  },
+  {
+    "question": "______ is a person that writes drama.",
+    "options": ["Dramatist", "Musician", "Director", "Artist"],
+    "correct": "Dramatist",
+    "explanation": "A dramatist writes plays."
+  },
+  {
+    "question": "The vertical lines that divide the music into equal beat is called",
+    "options": ["bar line", "star line", "ledger line", "piano line"],
+    "correct": "bar line",
+    "explanation": "Bar lines divide the staff into measures of equal beats."
+  },
+  {
+    "question": "The great staff consists of ______ lines and ______ spaces.",
+    "options": ["20,10", "11, 10", "6, 5", "5,4"],
+    "correct": "11, 10",
+    "explanation": "The grand staff combines treble and bass staves."
+  },
+  {
+    "question": "This symbol is ______.",
+    "options": ["minimum", "clef", "quaver", "semi- quavers"],
+    "correct": "quaver",
+    "explanation": "A quaver is an eighth note."
+  },
+  {
+    "question": "______ sounds are unpleasant to our ears.",
+    "options": ["Organized", "Music", "Triad", "Unorganized"],
+    "correct": "Unorganized",
+    "explanation": "Noise is unorganized, unpleasant sound."
+  },
+  {
+    "question": "The G- clef is known as",
+    "options": ["treble", "bass", "chord", "semitone"],
+    "correct": "treble",
+    "explanation": "The G clef is called the treble clef."
+  }
+];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with PVS topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
