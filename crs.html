@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - CRS Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">CRS</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">CHRISTIAN RELIGIOUS STUDIES</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any RNVE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from PVS 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+         {"question": "R.S.2023", "options": ["Michael", "Gabriel", "Raphael", "Joseph"], "correct": "Michael", "explanation": "Jude 1:9 refers to Michael as the archangel."},
+  {"question": "After wasting his money and feeling the pinch of hunger, the prodigal son sought and got a job to feed", "options": ["pigs", "dogs", "sheep", "cows"], "correct": "pigs", "explanation": "Luke 15:15-16 states the prodigal son was sent to feed pigs."},
+  {"question": "When the earth was created, it was completely covered with water and", "options": ["dew", "darkness", "sunshine", "light"], "correct": "darkness", "explanation": "Genesis 1:2 describes the earth as formless with darkness over the deep."},
+  {"question": "Which tribe in Nigeria refers to God as Ubanjiji?", "options": ["Ijaw", "Hausa", "Igbo", "Yoruba"], "correct": "Ijaw", "explanation": "Ubanjiji is the Ijaw name for God."},
+  {"question": "The sin of Adam and Eve was", "options": ["adultery", "adultery", "disobedience", "fornication"], "correct": "disobedience", "explanation": "They disobeyed God's command regarding the forbidden tree (Genesis 3)."},
+  {"question": "The ability to exercise one's Fundamental Human Rights is called", "options": ["freedom", "anarchy", "obedience", "authority"], "correct": "freedom", "explanation": "Freedom is the right to act, speak, or think without hindrance."},
+  {"question": "Hophni and Phineas were the two sons of", "options": ["Job", "Samuel", "Adam", "Eli"], "correct": "Eli", "explanation": "1 Samuel 1:3 identifies them as the sons of Eli the priest."},
+  {"question": "Peter was divinely related from prison was as a result of", "options": ["his faithfulness", "the guards' carelessness", "earnest prayer of the believers", "King Herod's pardon"], "correct": "earnest prayer of the believers", "explanation": "Acts 12:5 says the church prayed earnestly for Peter."},
+  {"question": "Who was the Roman Emperor at the time of the birth of Jesus?", "options": ["Julius Caesar", "Pharaoh", "Augustus Caesar", "Herod"], "correct": "Augustus Caesar", "explanation": "Luke 2:1 mentions a decree from Caesar Augustus."},
+  {"question": "Abraham was years old when God called him out of his father's house.", "options": ["75", "85", "95", "105"], "correct": "75", "explanation": "Genesis 12:4 states Abram was seventy-five years old."},
+  {"question": "How many people received the Holy Spirit on the day of Pentecost?", "options": ["3000", "5000", "6000", "7000"], "correct": "3000", "explanation": "Acts 2:41 records about three thousand were added."},
+  {"question": "At Joppa, Peter raised from the dead.", "options": ["Lydia", "Esther", "Mary", "Dorcas"], "correct": "Dorcas", "explanation": "Tabitha (Dorcas) was raised in Acts 9:36-42."},
+  {"question": "The ability of a man to build new things is called", "options": ["invention", "production", "procreation", "demolition"], "correct": "invention", "explanation": "Invention is creating something new that did not exist before."},
+  {"question": "Paul was apprenticed to the trade of", "options": ["carpentry", "tent-making", "bricklaying", "surveying"], "correct": "tent-making", "explanation": "Acts 18:3 identifies Paul as a tentmaker."},
+  {"question": "Paul was converted from Judaism to Christian as a result of his encounter with Jesus on way to", "options": ["Damascus", "Samaria", "Jerusalem", "Joppa"], "correct": "Damascus", "explanation": "Paul's conversion happened on the road to Damascus (Acts 9)."},
+  {"question": "\"Blessed are the meek for they shall", "options": ["inherit the earth", "comforted", "see God", "be satisfied"], "correct": "inherit the earth", "explanation": "Matthew 5:5 - The Beatitudes."},
+  {"question": "Who did Jesus refer to as his brothers, sis and mother?", "options": ["His uncles", "His disciples", "The Pharisees", "The Sadducees"], "correct": "His disciples", "explanation": "Matthew 12:49 - Jesus pointed to his disciples."},
+  {"question": "was the last creation of God.", "options": ["Light", "Man", "Vegetations", "Fish and birds"], "correct": "Man", "explanation": "Mankind was created on the sixth day as God's final creative act."},
+  {"question": "Reconciliation means", "options": ["keeping malice with others", "fasting and prayer", "conversion of sinners", "mending broken relationship"], "correct": "mending broken relationship", "explanation": "Reconciliation is restoring friendly relations."},
+  {"question": "Bad friendship could lead to one of the following", "options": ["Evil character.", "Academic excellence", "Good connection.", "Respect for elders"], "correct": "Evil character.", "explanation": "1 Corinthians 15:33 - 'Bad company corrupts good character.'"},
+  {"question": "Who spoke on behalf of the apostles on day of Pentecost against the allegation drunkenness?", "options": ["Peter", "John", "Andrew", "Phil"], "correct": "Peter", "explanation": "Acts 2:14-15 records Peter addressing the crowd."},
+  {"question": "Paul's letter to the Thessalonians states anyone who does not work should", "options": ["be seriously beaten", "be forced to work", "not eat", "be made a leader"], "correct": "not eat", "explanation": "2 Thessalonians 3:10 - 'If a man will not work, he shall not eat.'"},
+  {"question": "Which of the following parables illustrated God's concern for the weak? God's concern for the weak?", "options": ["The rich fool", "The unforgiving servant", "The lost coin", "The talent"], "correct": "The lost coin", "explanation": "This parable (Luke 15) shows God's diligent search for the lost."},
+  {"question": "Who did Jesus raise from the dead at Nain?", "options": ["Dorcas", "Lazarus", "Tabitha", "The widow's son"], "correct": "The widow's son", "explanation": "Luke 7:11-17 recounts the raising of the widow's son at Nain."},
+  {"question": "One of the charges leveled against Stephen a", "options": ["blasphemy", "corruption", "fornication", "idolatry"], "correct": "blasphemy", "explanation": "Stephen was charged with blasphemy against Moses and God (Acts 6:11)."},
+  {"question": "One of the charges leveled against Stephen", "options": ["blasphemy", "corruption", "fornication", "idolatry"], "correct": "blasphemy", "explanation": "Stephen was charged with blasphemy against Moses and God (Acts 6:11)."},
+  {"question": "John Mark left the apostles during their first missionary journey at", "options": ["Perga", "Pamphylia", "Jerusalem", "Antioch"], "correct": "Perga", "explanation": "Acts 13:13 states John Mark left from Perga in Pamphylia."},
+  {"question": "The first place visited by Paul and Barnabas where a significant thing happened was", "options": ["Antioch", "Salamis", "Paphos", "Iconium"], "correct": "Salamis", "explanation": "Acts 13:5 notes they proclaimed God's word in Salamis."},
+  {"question": "was the great teacher who trained Paul in Jerusalem.", "options": ["Rabbi Zaccheaus", "Rabbi Paulius", "Rabbi Caesar", "Rabbi Paulius"], "correct": "Gamaliel", "explanation": "Paul states in Acts 22:3 that he was taught by Gamaliel."},
+  {"question": "After the healing of the lame man at the Beautiful Gate, the number of Christians rose to", "options": ["3000", "5000", "7000", "8000"], "correct": "5000", "explanation": "Acts 4:4 notes the number grew to about five thousand."},
+  {"question": "After his resurrection, Jesus appeared to his disciples for a period of", "options": ["30", "40", "50", "60"], "correct": "40", "explanation": "Acts 1:3 says he appeared over forty days."},
+  {"question": "Which of the following means the catching up of the believer heaven?", "options": ["Transformation", "Transfiguration", "Rapture", "Descension"], "correct": "Rapture", "explanation": "The Rapture describes believers caught up to meet Christ (1 Thessalonians 4:17)."},
+  {"question": "Zechariah was made deaf and dumb because he", "options": ["delayed the angel", "did not follow the angel's instruction", "asked the angel for a sign", "spoke rudely to the angel"], "correct": "did not follow the angel's instruction", "explanation": "He did not believe the angel's words (Luke 1:20)."},
+  {"question": "The supreme law is", "options": ["care", "love", "money", "patience"], "correct": "love", "explanation": "Matthew 22:37-40 states the greatest commandment is love."},
+  {"question": "The suffering and death of Jesus is known as", "options": ["crucifixion", "suffering", "advent", "passion"], "correct": "passion", "explanation": "The Passion refers specifically to Christ's suffering and death."},
+  {"question": "The three wise- men came from the", "options": ["Jerusalem", "East", "South", "North", "West"], "correct": "East", "explanation": "Matthew 2:1 mentions Magi from the east."},
+  {"question": "The Holy Spirit fell on the apostles on the Day of Pentecost according to the prophecy of Prophet", "options": ["Isaiah", "Amos", "Joel", "Ezekiel"], "correct": "Joel", "explanation": "Peter quotes Joel 2:28-32 in Acts 2:16-21."},
+  {"question": "We learn from the parable of the prodigal son that God", "options": ["hates sinners", "will forever hate sinners", "forgives sinners", "will destroy sinners"], "correct": "forgives sinners", "explanation": "The parable demonstrates God's forgiveness."},
+  {"question": "The man who buried the body of Jesus was", "options": ["Joseph of Arimathea", "Nicodemus", "Peter", "John"], "correct": "Joseph of Arimathea", "explanation": "Matthew 27:57-60 identifies Joseph of Arimathea."},
+  {"question": "What has created a barrier between God and man?", "options": ["Greed", "Sin", "Gossip", "Unfaithfulness"], "correct": "Sin", "explanation": "Isaiah 59:2 - 'Your iniquities have separated you from your God.'"},
+  {"question": "Which of these means Baptism?", "options": ["Immersion", "Conversion", "Emergence", "Submission"], "correct": "Immersion", "explanation": "The Greek word 'baptizo' primarily means to immerse."},
+  {"question": "Sau, saul, why do you persecute me? this statement was made by", "options": ["An angel", "God", "John", "Jesus"], "correct": "Jesus", "explanation": "Acts 9:4-5 records Jesus speaking to Saul."},
+  {"question": "Who resigned his post of tax- collector in response to God's call in the New Testament?", "options": ["Judas", "Peter", "John", "Mathew"], "correct": "Mathew", "explanation": "Matthew (Levi) left his tax booth to follow Jesus (Luke 5:27-28)."},
+  {"question": "denied ever knowing Jesus Christ.", "options": ["Peter", "James", "Paul", "John"], "correct": "Peter", "explanation": "Peter denied Jesus three times (Matthew 26:69-75)."},
+  {"question": "lost his birthright.", "options": ["Esau", "Jacob", "Moses", "James"], "correct": "Esau", "explanation": "Esau sold his birthright for stew (Genesis 25:29-34)."},
+  {"question": "One of the following is not among the orthodox churches.", "options": ["Roman Catholic Church", "Baptist Church", "Redeemed Christian Church of God", "Church Missionary Church"], "correct": "Redeemed Christian Church of God", "explanation": "RCCG is a Pentecostal church, not orthodox/mainline."},
+  {"question": "Who did Jesus refer to as his brothers, sisters and mothers?", "options": ["Friends", "Peter", "Disciples", "Family"], "correct": "Disciples", "explanation": "Matthew 12:49 - Jesus pointed to his disciples."},
+  {"question": "Abstainers from premarital sex prevent all these except", "options": ["Pregnancy", "Happiness", "Death", "Spread of HIV/AIDS"], "correct": "Happiness", "explanation": "Abstinence prevents physical consequences but not happiness."},
+  {"question": "The three wise men gave Jesus and", "options": ["Bread,Gold Yam", "Gold,Mirth,Franckincse", "Myrrth,Franckincse,Silver", "Myrrth,Franckincse,Gold"], "correct": "Myrrth,Franckincse,Gold", "explanation": "Matthew 2:11 lists gold, frankincense, and myrrh."},
+  {"question": "What led Jesus Christ into the wilderness to be tempted by the devil?", "options": ["John", "Prayer", "Devil", "Holy spirit"], "correct": "Holy spirit", "explanation": "Matthew 4:1 says Jesus was led by the Spirit."},
+  {"question": "The promise of the father was", "options": ["baptism of water", "the coming of the Holy Spirit", "the preaching of the gospel", "the great commission"], "correct": "the coming of the Holy Spirit", "explanation": "Acts 1:4 - Jesus instructs them to wait for the Holy Spirit."},
+  {"question": "Complete this: Blessed are the pure in heart", "options": ["for they shall see God.", "for they shall be called the sons of God.", "for they shall enter unto heaven.", "for they shall be comforted."], "correct": "for they shall see God.", "explanation": "Matthew 5:8."},
+  {"question": "Sarah gave birth to Isaac at what age?", "options": ["90", "99", "19", "92"], "correct": "90", "explanation": "Abraham was 100 and Sarah 90 when Isaac was born (Genesis 17:17)."},
+  {"question": "The deceit of the serpent shows Eve as a", "options": ["flexible woman", "flexible winner", "weaker woman", "weaker super"], "correct": "weaker woman", "explanation": "Referring to 1 Peter 3:7's description of the wife as the 'weaker vessel.'"},
+  {"question": "Another name for the wise men are", "options": ["Man power", "astronaut", "astrologers", "Main Shepherds"], "correct": "astrologers", "explanation": "Magi were associated with astrology/astronomy."},
+  {"question": "Miracle means", "options": ["God's intervention in compound nature", "God's intervention in human's affair", "God's disappointment", "God's in heaven"], "correct": "God's intervention in human's affair", "explanation": "A miracle is a supernatural act of God in the world."},
+  {"question": "Murmuring in the early church can be called", "options": ["show", "service", "conflict", "common"], "correct": "conflict", "explanation": "The murmuring in Acts 6 led to internal conflict."},
+  {"question": "Dignity of labour means", "options": ["having love in one's job", "having love and hatred", "having and labour", "having sharing"], "correct": "having love in one's job", "explanation": "It means respecting and finding pride in work."},
+  {"question": "What teaching of Jesus described a state of the highest happiness?", "options": ["Beatitude", "Parable", "Love", "Honesty"], "correct": "Beatitude", "explanation": "The Beatitudes (Matthew 5) describe blessed states."},
+  {"question": "Who was the chairman of the Jerusalem council?", "options": ["Peter", "Paul", "Jame", "Barnbas"], "correct": "Jame", "explanation": "James gave the final judgment at the Council of Jerusalem (Acts 15)."},
+  {"question": "What was the sin of Adam and Eve?", "options": ["Adultery", "Idolatry", "Fornication", "Disobedience"], "correct": "Disobedience", "explanation": "Genesis 3 records their disobedience."},
+  {"question": "Who of the following were martyrs?", "options": ["Andrew and John", "Philip and Peter", "Thomas and Bartholomew", "Stephen and James"], "correct": "Stephen and James", "explanation": "Stephen was stoned (Acts 7) and James killed by sword (Acts 12)."},
+  {"question": "is when one is killed for his religious beliefs.", "options": ["Reconciliation", "Execution", "Martydom", "Persecution"], "correct": "Martydom", "explanation": "Martyrdom is death for refusing to renounce faith."},
+  {"question": "At the Jerusalem council, it was resolved that animals should not be eaten.", "options": ["strangled", "strange", "strong", "dangerous"], "correct": "strangled", "explanation": "Acts 15:20 includes abstaining from meat of strangled animals."},
+  {"question": "Which tree was Adam forbidden from eating?", "options": ["Tree of life", "Tree of apple", "Tree of orange", "Knowledge of good and evil"], "correct": "Knowledge of good and evil", "explanation": "Genesis 2:17 specifies the tree of knowledge of good and evil."},
+  {"question": "All these are social problems in the church today except", "options": ["fraud", "evangelist", "Immorality", "hypocrisy"], "correct": "evangelist", "explanation": "An evangelist is a preacher, not a social problem."},
+  {"question": "Court wedding is also known as wedding", "options": ["monogamy", "polygamy", "ordinance", "conjugal"], "correct": "ordinance", "explanation": "Marriage by ordinance or civil marriage."},
+  {"question": "is not one of the disciples of Jesus.", "options": ["Peter", "John", "Philip", "Samuel"], "correct": "Samuel", "explanation": "Samuel was an Old Testament prophet and judge."},
+  {"question": "Who is the wife of Zechariah?", "options": ["Hannah", "Elizabeth", "Mary", "Esther"], "correct": "Elizabeth", "explanation": "Luke 1:5 - Zechariah's wife was Elizabeth."},
+  {"question": "Covenant is between God and man.", "options": ["a boundary", "an unlawful", "a false promise", "an agreement"], "correct": "an agreement", "explanation": "A covenant is a solemn agreement."},
+  {"question": "Abraham was formerly known as", "options": ["Abijah", "Abraham", "Abram", "Abddramb"], "correct": "Abram", "explanation": "God changed Abram's name to Abraham (Genesis 17:5)."},
+  {"question": "All the following are the ways we maintain relationship with God except", "options": ["Revenge", "Loving one another", "Praying always", "Reading the Bible"], "correct": "Revenge", "explanation": "Revenge contradicts God's command to forgive."},
+  {"question": "God was sorry for creating man because instead of obeying him, man became", "options": ["likehim", "wise", "rebellious", "wicked"], "correct": "wicked", "explanation": "Genesis 6:5 - The wickedness of man was great."},
+  {"question": "After the flood that destroyed the world, God made a new beginning with the family of", "options": ["Abraham", "Moses", "Noah", "David"], "correct": "Noah", "explanation": "God established his covenant with Noah after the flood."},
+  {"question": "Who was forced by soldiers to help Jesus to carry his cross?", "options": ["Peter", "Andrew", "His brother", "Simeon a cypenian"], "correct": "Simeon a cypenian", "explanation": "Simon of Cyrene was compelled to carry the cross (Matthew 27:32)."},
+  {"question": "Which of the following ended the story of Paul's early life?", "options": ["His persecution of the Christians.", "His conversion.", "His activities as a Pharisees.", "His trade apprenticeship."], "correct": "His conversion.", "explanation": "Paul's conversion marked the end of his life as a Pharisee persecutor."},
+  {"question": "were the couple noted for hypocrisy in the early church.", "options": ["Ananians and Sapphira", "Aquila and Prisal", "Simeon and Anna", "Agripa ard Bernice"], "correct": "Ananians and Sapphira", "explanation": "Acts 5 describes their lie and death."},
+  {"question": "The angel Cornelius saw in a vision told him to go and call Peter at", "options": ["Jerusalem", "Joppa", "Antioch", "Galilee"], "correct": "Joppa", "explanation": "Acts 10:5 - The angel told Cornelius to send for Peter in Joppa."},
+  {"question": "According to the Bible, the love of money is", "options": ["good for healthy living", "the root of all evil", "not to be lazy marked", "helpful to the development of"], "correct": "the root of all evil", "explanation": "1 Timothy 6:10 - 'For the love of money is a root of all kinds of evil.'"},
+  {"question": "What was the reaction of people when Jesus entered into Jerusalem?", "options": ["They sent him back.", "They were worried.", "They were angry.", "They shouted and rejoiced."], "correct": "They shouted and rejoiced.", "explanation": "Matthew 21:9 describes the crowd shouting 'Hosanna!'"},
+  {"question": "The departure of all the Israelites together with their belongings from Egypt is known as", "options": ["Tablet", "Mark", "The Exodus", "Passover"], "correct": "The Exodus", "explanation": "Exodus means 'departure' or 'exit.'"},
+  {"question": "Who was the Roman Emperor at the time Jesus was born?", "options": ["Julius Ceaser", "Pharaoh", "Augustus Ceaser", "Herod"], "correct": "Augustus Ceaser", "explanation": "Luke 2:1 mentions Caesar Augustus."},
+  {"question": "Blessed are the pure in heart, for they shall", "options": ["see God", "be filled", "be merciful", "rejoice"], "correct": "see God", "explanation": "Matthew 5:8."},
+  {"question": "God destroyed Sodom and Gommorah because of their", "options": ["idolatry", "religion", "disunity", "immorality"], "correct": "immorality", "explanation": "Genesis 18-19 details the grievous sin and sexual immorality."},
+  {"question": "What did the devil ask Jesus to do in the temptation?", "options": ["To bow down and worship him.", "To jump down from the pinnacle of the temple", "To perform miracle.", "To turn stone to bread and eat."], "correct": "To bow down and worship him.", "explanation": "The final temptation was to worship Satan (Matthew 4:9)."},
+  {"question": "What was the important thing Jesus needed from the people when healing them?", "options": ["Love", "Faith", "Money", "Praise"], "correct": "Faith", "explanation": "Jesus often said, 'Your faith has healed you.'"},
+  {"question": "What did the disciples do when Jesus was arrested?", "options": ["They fought", "They cried", "They prayed", "They ran away"], "correct": "They ran away", "explanation": "Matthew 26:56 - 'Then all the disciples deserted him and fled.'"},
+  {"question": "Jesus was sent to earth by God to", "options": ["save people from their sins", "make people work", "make people know that he has power", "punish the offenders"], "correct": "save people from their sins", "explanation": "Matthew 1:21 - 'He will save his people from their sins.'"},
+  {"question": "Paul and Barnabas were", "options": ["fishermen", "tax collectors", "tent makers", "preachers"], "correct": "preachers", "explanation": "They were apostles and preachers of the gospel."},
+  {"question": "One of these is not the attributes of God.", "options": ["Sovereign creator", "Ubangiji", "The unwised", "Only wise"], "correct": "The unwised", "explanation": "God is all-wise; 'unwised' contradicts His omniscience."},
+  {"question": "The name \"Emmanuel\" means", "options": ["Everlasting father", "God with", "Father of many nation", "Exalted father"], "correct": "God with", "explanation": "Matthew 1:23 - 'God with us.'"},
+  {"question": "Jesus was given to drink on the", "options": ["Water", "Vinegar", "Paraffin", "Juice"], "correct": "Vinegar", "explanation": "John 19:29-30 mentions sour wine (vinegar)."},
+  {"question": "The Angel announced to them that a had been born in the city of", "options": ["Assyria", "David", "Herod", "Jerusalem"], "correct": "David", "explanation": "Luke 2:11 - 'In the town of David a Savior has been born.'"},
+  {"question": "According to Mark, the first four did be called by Jesus were", "options": ["Simeon, James, John and Philip.", "Simeon, James, John and Mathew.", "Simeon, James, John and Bartholomew.", "Simeon, Andrew, James and John."], "correct": "Simeon, Andrew, James and John.", "explanation": "Mark 1:16-20 - Simon (Peter), Andrew, James, and John."},
+  {"question": "When you are persecuted for an offence did not commit, you should", "options": ["cry \"why me\".", "pray in tongue immediately.", "rejoice and be glad for your reward greater in heaven.", "revenge."], "correct": "rejoice and be glad for your reward greater in heaven.", "explanation": "Matthew 5:11-12 - Rejoice and be glad for great reward in heaven."},
+  {"question": "How many people repented and were with the holy spirit after Peter's speech?", "options": ["Five thousand people.", "Three thousand people.", "Ten thousand people.", "One thousand people."], "correct": "Three thousand people.", "explanation": "Acts 2:41 records about three thousand were added."},
+  {"question": "and committed fraud in the church.", "options": ["Anas and Saphir", "Andrew and Sarah", "Ananias and Sapphira", "Anthony and Sapphira"], "correct": "Ananias and Sapphira", "explanation": "Acts 5 describes their fraud and death."},
+  {"question": "The following are the qualities of except", "options": ["good reputation", "being filled with the holy spirit", "prayerfulness", "backbiting"], "correct": "backbiting", "explanation": "Backbiting is speaking ill of others, not a godly quality."},
+  {"question": "Cornelius was a man.", "options": ["wicked", "devoted", "useless", "tough"], "correct": "devoted", "explanation": "Acts 10:2 describes Cornelius as devout and God-fearing."},
+  {"question": "became the first Christian martyr?", "options": ["Stephen", "James", "Peter", "Paul"], "correct": "Stephen", "explanation": "Acts 7 records Stephen's martyrdom."},
+  {"question": "The birth of Jesus was first announced to the shepherd", "options": ["shepherd", "wise men", "king Herod", "Angel"], "correct": "shepherd", "explanation": "Angels announced the birth to shepherds first (Luke 2)."},
+  {"question": "A group of people living in the same area having a common interest is called", "options": ["family", "togetherness", "common people", "community"], "correct": "community", "explanation": "A community shares geography and interests."},
+  {"question": "The seven appointed in the early church to look after the poor and the needy were called", "options": ["Deacons", "Judges", "Pastors", "Apostles"], "correct": "Deacons", "explanation": "The role of serving tables describes the diaconate."},
+  {"question": "God is omniscient means that God is", "options": ["powerful", "all knowing", "everywhere", "silent"], "correct": "all knowing", "explanation": "Omni (all) + scient (knowing)."},
+  {"question": "Which of the following is Jesus home town", "options": ["Bethlehem", "Tarsus", "Jerusalem", "Bethany"], "correct": "Nazareth", "explanation": "Jesus was known as 'Jesus of Nazareth.'"},
+  {"question": "Hophni and Phineas were two sons of", "options": ["Eli", "David", "Job", "Samuel"], "correct": "Eli", "explanation": "1 Samuel 1:3 identifies them as the sons of Eli."},
+  {"question": "One of the following is not among the appointed deacons.", "options": ["Timon", "Nicholas", "Philip", "James"], "correct": "James", "explanation": "James the apostle was not one of the seven deacons in Acts 6."},
+  {"question": "What was seen on the head of the disciples when the Holy Spirit came upon them?", "options": ["Thick smoke", "Tongue of fire", "Mighty wind", "Thick cloud"], "correct": "Tongue of fire", "explanation": "Acts 2:3 - 'They saw what seemed to be tongues of fire.'"},
+  {"question": "Which of these parables illustrates concern for the weak?", "options": ["The rich fool", "The lost coin", "The rich man and Lazarus", "The talent"], "correct": "The lost coin", "explanation": "This parable (Luke 15) shows God's diligent search for the lost."},
+  {"question": "The primary mission of the church is to", "options": ["cast out demons", "evangelize the word", "condemn sinners", "heal diseases"], "correct": "evangelize the word", "explanation": "The Great Commission commands making disciples and teaching."},
+  {"question": "The ability to exercise one's fundamental human right is called", "options": ["justice", "obedience", "authority", "freedom"], "correct": "freedom", "explanation": "Freedom is the right to act, speak, or think without hindrance."},
+  {"question": "What can you consider to be the mission of Jesus on earth?", "options": ["Preaching", "Healing", "Praying", "All of the above"], "correct": "All of the above", "explanation": "Jesus preached, healed, and prayed throughout His ministry."},
+  {"question": "Jesus fasted for how many days before he began his ministry?", "options": ["15 days", "20 days", "35 days", "40 days"], "correct": "40 days", "explanation": "Matthew 4:2."},
+  {"question": "Jesus was sent to earth by God to", "options": ["save people from their sins", "make people work", "make people know that he has power", "punish the offenders"], "correct": "save people from their sins", "explanation": "Matthew 1:21 - 'He will save his people from their sins.'"},
+  {"question": "Which of the following activities will lead to spiritual uplift?", "options": ["Speaking in tongues", "Singing and dancing", "Fasting and prayer", "Dancing and shouting"], "correct": "Fasting and prayer", "explanation": "These are spiritual disciplines drawing one closer to God."},
+  {"question": "What was the important thing Jesus needed from the people when healing them?", "options": ["Love", "Faith", "Praise", "Peace"], "correct": "Faith", "explanation": "Jesus often said, 'Your faith has healed you.'"},
+  {"question": "What did the disciples do when Jesus was arrested?", "options": ["they fought", "they cried", "they shouted", "prayed"], "correct": "they ran away", "explanation": "Matthew 26:56 - 'Then all the disciples deserted him and fled.'"},
+  {"question": "According to the Holy Bible, the love of money is", "options": ["good in order to be rich", "to help to provide for our needs", "the root of all evil", "to make one popular in the society"], "correct": "the root of all evil", "explanation": "1 Timothy 6:10."},
+  {"question": "Paul rejected the idea of the circumcision of the Gentile converts because", "options": ["they would die because of bleeding.", "salvation is only by faith in Christ rather than by a strict observance of the mosaic law.", "it will compel them to accept the Jewish way of life.", "the Gentiles would no longer be converted to Christianity."], "correct": "salvation is only by faith in Christ rather than by a strict observance of the mosaic law.", "explanation": "Paul's doctrine was justification by faith, not works of law (Galatians)."},
+  {"question": "When did CAN come into existence?", "options": ["August 27,1976", "February 15,1960", "January 10,1990", "April 6,1968"], "correct": "August 27,1976", "explanation": "The Christian Association of Nigeria was founded in 1976."},
+  {"question": "The motto of CAN is", "options": ["that they all may be one.", "that they all pray together.", "that they all must read the bible.", "that they all must attend the fellowship."], "correct": "that they all may be one.", "explanation": "Inspired by Jesus' prayer in John 17:21."},
+  {"question": "Church can also be called", "options": ["The bridge of Christ", "Upper room", "Temple of Christ", "The strong room"], "correct": "Temple of Christ", "explanation": "Believers are the temple of the Holy Spirit."},
+  {"question": "Orthodox churches include all, but one of the following is not included.", "options": ["Roman catholic church", "Methodist church", "Deeper life church", "Baptist church"], "correct": "Deeper life church", "explanation": "Deeper Life is a Pentecostal church, not orthodox."},
+  {"question": "was the strongest enemy of the Christians before his conversion.", "options": ["John", "Saul", "Peter", "Elijah"], "correct": "Saul", "explanation": "Saul (Paul) persecuted the church violently."},
+  {"question": "What happened at noon on the day Jesus was crucified?", "options": ["The angels rang the bell.", "The Angel were singing and dancing.", "The whole world was covered with darkness.", "Blood poured down from heaven."], "correct": "The whole world was covered with darkness.", "explanation": "Luke 23:44 - Darkness came over the land."},
+  {"question": "How many virgins were mentioned in the parable of virgins?", "options": ["Five", "Ten", "Fifteen", "Twenty"], "correct": "Ten", "explanation": "Matthew 25:1 - The parable of the ten virgins."},
+  {"question": "What did Jesus say to the wind when a storm hit the boat He and His disciples were?", "options": ["Bestill", "Stop", "Go away", "Go and perish"], "correct": "Bestill", "explanation": "Mark 4:39 - 'Quiet! Be still!'"},
+  {"question": "Who was the old woman that was in the temple during the presentation of Jesus?", "options": ["Anna", "Josephine", "Deborah", "Elizabeth"], "correct": "Anna", "explanation": "Luke 2:36 mentions Anna the prophetess."},
+  {"question": "Which tree was Adam forbidden from eating?", "options": ["Tree of life", "Tree of birth", "Tree of knowledge and good and evil.", "Tree of death"], "correct": "Tree of knowledge and good and evil.", "explanation": "Genesis 2:17 specifies the tree of knowledge of good and evil."},
+  {"question": "Any work or duty done for a company, government or any organization is called", "options": ["service", "employment", "recruitment", "enlistment"], "correct": "service", "explanation": "Labor performed for an entity is service."},
+  {"question": "The offer and acceptance of something particularly money to help or persuade somebody to do something is known as", "options": ["corruption", "vandalism", "temptation", "bribery"], "correct": "bribery", "explanation": "Bribery is giving something to influence a decision."},
+  {"question": "What led to the first Christian Council of Jerusalem?", "options": ["The issue of circumcision.", "The issue of the Holy Spirit.", "The issue of leadership.", "The issue of last super."], "correct": "The issue of circumcision.", "explanation": "Acts 15 addresses whether Gentile converts must be circumcised."},
+  {"question": "All these are Christ disciple except", "options": ["Samuel", "Peter", "Mathew", "John"], "correct": "Samuel", "explanation": "Samuel was an Old Testament prophet."},
+  {"question": "The three wise men gave Jesus", "options": ["Gold, Frankincense, Myrrh", "Silver, Gold, Bronze", "Oil, Wine, Bread", "Water, Honey, Grain"], "correct": "Gold, Frankincense, Myrrh", "explanation": "Matthew 2:11."},
+  {"question": "Which of these parables illustrates concern for the weak?", "options": ["The rich fool", "The lost coin", "The rich man and Lazarus", "The beatitudes"], "correct": "The lost coin", "explanation": "This parable shows God's diligent search for the lost."},
+  {"question": "Who was forced by soldiers to help Jesus carry his cross?", "options": ["Peter", "Andrew", "Simon a Cyrenian", "James"], "correct": "Simon a Cyrenian", "explanation": "Matthew 27:32."},
+  {"question": "The suffering and death of Jesus Christ is known as", "options": ["The passion", "The crucifixion", "The triumphant entry", "The Lord's supper"], "correct": "The passion", "explanation": "The Passion refers specifically to Christ's suffering and death."},
+  {"question": "Who did Jesus referred to as his brothers, sisters and mother?", "options": ["James", "Andrew", "Peter", "Disciples"], "correct": "Disciples", "explanation": "Matthew 12:49."},
+  {"question": "God is omniscient means", "options": ["He is all knowing", "he is everywhere", "He is powerful", "He is invisible"], "correct": "He is all knowing", "explanation": "Omniscience means all-knowing."},
+  {"question": "All except one is not a function of marriage", "options": ["Divorce", "Procreation", "Companionship", "For Godly seed"], "correct": "Divorce", "explanation": "Divorce dissolves marriage, not a function of it."},
+  {"question": "Blessed are the meek for they shall", "options": ["see God", "be comforted", "be satisfied", "inherit the earth"], "correct": "inherit the earth", "explanation": "Matthew 5:5."},
+  {"question": "All these are social evils except one.", "options": ["Fraud", "Cultism", "Honesty", "Bribery and corruption"], "correct": "Honesty", "explanation": "Honesty is a virtue, not a social evil."},
+  {"question": "and healed a lame man on their way to the temple.", "options": ["Peter and John", "Peter and Paul", "John and Mark", "Philip and John"], "correct": "Peter and John", "explanation": "Acts 3 describes Peter and John healing the lame man."},
+  {"question": "In order to solve the problem of food distribution deacons were chosen.", "options": ["twelve", "seven", "nine", "three"], "correct": "seven", "explanation": "Acts 6:3 - 'Choose seven men from among you.'"},
+  {"question": "James is the son of", "options": ["Zebedee", "High Priest", "Joseph", "Jonah"], "correct": "Zebedee", "explanation": "James and John were sons of Zebedee (Matthew 4:21)."},
+  {"question": "was stoned to death.", "options": ["Stephen", "Paul", "Joseph", "Daniel"], "correct": "Stephen", "explanation": "Acts 7:59 - Stephen was stoned."},
+  {"question": "The most important factor responsible for the rapid spread of Christianity in the early church is", "options": ["faith", "prayers", "giving", "miracles"], "correct": "faith", "explanation": "Faith in Christ and power of the Holy Spirit were key."},
+  {"question": "The three wise men came from Jerusalem to visit baby Jesus.", "options": ["Fast", "West", "South", "North"], "correct": "East", "explanation": "Matthew 2:1 mentions Magi from the east."},
+  {"question": "Obedience is to be displayed by all except one of the following.", "options": ["Child", "God", "Wife", "Follower"], "correct": "God", "explanation": "God is the ultimate authority; He does not owe obedience."},
+  {"question": "One major thing that the baptism of the Holy Spirit did to the Apostles was that", "options": ["it gave them boldness", "they were able to sleep", "it made them to be afraid", "they were able to discuss revelations"], "correct": "it gave them boldness", "explanation": "Peter preached boldly to thousands at Pentecost."},
+  {"question": "As Peter preached in Cornelius house all those present", "options": ["were fed with bread", "enjoyed his preaching", "received the holy Spirit", "could not speak"], "correct": "received the holy Spirit", "explanation": "Acts 10:44 - The Holy Spirit came on all who heard."},
+  {"question": "Why did Herod arrest Peter?", "options": ["He was just testing him", "He wanted to torture him", "We wanted to arrest the Jews", "He wanted to kill him"], "correct": "He wanted to kill him", "explanation": "Acts 12:3 - Herod intended execution after Passover."},
+  {"question": "The Supreme law is", "options": ["love", "kindness", "care", "friendship"], "correct": "love", "explanation": "Matthew 22:37-40."},
+  {"question": "was a magician who lived in Samara", "options": ["Nicanor", "Bar Jesus", "Elymas", "Simon"], "correct": "Simon", "explanation": "Acts 8:9 mentions Simon the Sorcerer in Samaria."}
+  
+      ];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with PVS topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
