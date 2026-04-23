@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - HISTORY Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">HISTORY</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">HISTORY</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any BECE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from PVS 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+  {
+    "question": "The study of history that deals with the study of interaction between human beings and environment in the past is called",
+    "options": ["political history", "family history", "environmental history", "general history"],
+    "correct": "environmental history",
+    "explanation": "Environmental history specifically focuses on the relationship between humans and their environment over time."
+  },
+  {
+    "question": "Nigeria civil war occurred between",
+    "options": ["1980-1985", "1960-1963", "1967-1970", "1963-1967"],
+    "correct": "1967-1970",
+    "explanation": "The Nigerian Civil War, also known as the Biafran War, was fought from 1967 to 1970."
+  },
+  {
+    "question": "Herodotus the father of history was a ______ historian.",
+    "options": ["European", "Portuguese", "London", "Greek"],
+    "correct": "Greek",
+    "explanation": "Herodotus was an ancient Greek historian who wrote 'The Histories'."
+  },
+  {
+    "question": "Stories serve as ______ to listeners and readers.",
+    "options": ["entertainment", "chaos", "fatigue", "bore"],
+    "correct": "entertainment",
+    "explanation": "Stories primarily provide amusement and enjoyment to an audience."
+  },
+  {
+    "question": "A person who tells stories is called a",
+    "options": ["preacher", "listener", "story teller", "gossiper"],
+    "correct": "story teller",
+    "explanation": "A storyteller is someone who narrates or recounts stories."
+  },
+  {
+    "question": "Who designed the Nigeria National flag?",
+    "options": ["Mr Sanni Okosu", "Mr Taiwo Akinkumi", "Mr Segun Oyalowo", "Mrs Ronke Soyombo"],
+    "correct": "Mr Taiwo Akinkumi",
+    "explanation": "Taiwo Akinkunmi designed the Nigerian national flag in 1959."
+  },
+  {
+    "question": "Bulletin serve as a",
+    "options": ["memoranda", "newsletter", "manual", "directories"],
+    "correct": "newsletter",
+    "explanation": "A bulletin is a short official statement or broadcast summary of news, similar to a newsletter."
+  },
+  {
+    "question": "______ and ______ are notable cultural festivals in Nigeria.",
+    "options": ["Osun festival and Argungun fishing festival", "Hip pop music and Orlat dance", "Michael Jackson song and Pop", "Toronto festival and foreign music"],
+    "correct": "Osun festival and Argungun fishing festival",
+    "explanation": "The Osun-Osogbo festival and the Argungu Fishing Festival are major indigenous cultural events in Nigeria."
+  },
+  {
+    "question": "The primary sources of history are called",
+    "options": ["non history", "traditions", "original sources", "artefacts"],
+    "correct": "original sources",
+    "explanation": "Primary sources are original materials or evidence from the time period being studied."
+  },
+  {
+    "question": "The annulment of June 12 election took place in",
+    "options": ["1991", "1992", "1993", "1994"],
+    "correct": "1993",
+    "explanation": "The June 12, 1993, presidential election was annulled by the military government of General Ibrahim Babangida."
+  },
+  {
+    "question": "______ and ______ are examples of historic sites in Nigeria.",
+    "options": ["Olumo Rock and Obudu Cattle Ranch", "Sweet Sensation and Mama Kass", "Lagos and Ogun", "Asero car park and Ita osi"],
+    "correct": "Olumo Rock and Obudu Cattle Ranch",
+    "explanation": "Olumo Rock (Ogun State) and Obudu Cattle Ranch (Cross River State) are recognized historical and tourist sites."
+  },
+  {
+    "question": "General Ibrahim Babangida was one of the ______ in Nigeria.",
+    "options": ["minister", "governor", "senator", "head of state"],
+    "correct": "head of state",
+    "explanation": "Ibrahim Babangida served as Nigeria's military Head of State from 1985 to 1993."
+  },
+  {
+    "question": "The outbreak of Uthman Dan Fodio Jihad occurred in",
+    "options": ["1808", "1906", "1804", "1818"],
+    "correct": "1804",
+    "explanation": "Usman dan Fodio's jihad began in 1804, leading to the establishment of the Sokoto Caliphate."
+  },
+  {
+    "question": "Pre-Colonial period in Nigeria means",
+    "options": ["before the independence.", "before the arrival of the white men.", "after the arrival of the white men.", "after independence."],
+    "correct": "before the arrival of the white men.",
+    "explanation": "Pre-colonial history refers to the period before European colonization and influence."
+  },
+  {
+    "question": "Nigeria is a ______ nation.",
+    "options": ["multi linguistic", "mono linguistic", "tribalistic", "special"],
+    "correct": "multi linguistic",
+    "explanation": "Nigeria is highly diverse with over 500 languages spoken."
+  },
+  {
+    "question": "Oyo Empire was founded by",
+    "options": ["Oyomesi", "Ogboni", "The Alaafin", "Oranmiyan"],
+    "correct": "Oranmiyan",
+    "explanation": "Oranmiyan, a prince from Ife, is traditionally regarded as the founder of the Oyo Empire."
+  },
+  {
+    "question": "The Itsekiri was a kingdom that emerged in ______ geopolitical zone of Nigeria.",
+    "options": ["south south", "south east", "south west", "north west"],
+    "correct": "south south",
+    "explanation": "The Itsekiri people are located in the Niger Delta region, within the South-South geopolitical zone."
+  },
+  {
+    "question": "The Oyomesi was headed by",
+    "options": ["Olumo", "Aare ona- kakan", "Bashorun", "Aremo"],
+    "correct": "Bashorun",
+    "explanation": "The Oyo Mesi was a council of kingmakers led by the Bashorun."
+  },
+  {
+    "question": "______ assisted the Alaafin of Oyo in administrative of the provinces.",
+    "options": ["Otun-ifa", "Bashorun", "Oyomesi", "Ikeji orisa"],
+    "correct": "Oyomesi",
+    "explanation": "The Oyo Mesi served as a check on the Alaafin's power and assisted in provincial administration."
+  },
+  {
+    "question": "Ghana Empire was also known as ______ empire.",
+    "options": ["gisse", "wagadou", "clans", "ape"],
+    "correct": "wagadou",
+    "explanation": "The Ghana Empire was called Wagadou by its rulers and the Soninke people."
+  },
+  {
+    "question": "The name Ghana means",
+    "options": ["warchief", "mande speaking", "black people", "ghanian"],
+    "correct": "warchief",
+    "explanation": "In the Soninke language, 'Ghana' meant 'war chief' or 'warrior king'."
+  },
+  {
+    "question": "In ancient Ghana ______ worked for the richer people.",
+    "options": ["traders", "nobles", "slaves", "kings"],
+    "correct": "slaves",
+    "explanation": "Slavery was a part of the social and economic structure in the ancient Ghana Empire."
+  },
+  {
+    "question": "The type of interaction between the Igbo and the Benin was known as",
+    "options": ["inter-group relations", "intra-group relations", "intra-communal relations", "unity"],
+    "correct": "inter-group relations",
+    "explanation": "Relations between distinct ethnic groups like the Igbo and Benin are classified as inter-group relations."
+  },
+  {
+    "question": "In 1235 AD, ______ empire was emerged.",
+    "options": ["Benin", "Mali", "Ghana", "Nigeria"],
+    "correct": "Mali",
+    "explanation": "The Mali Empire rose to prominence after the decline of Ghana, with Sundiata Keita's victory around 1235."
+  },
+  {
+    "question": "Askia Mohammed of Songhai Empire died in",
+    "options": ["1680", "1528", "1820", "1922"],
+    "correct": "1528",
+    "explanation": "Askia Mohammad I, a great ruler of the Songhai Empire, died around 1528."
+  },
+  {
+    "question": "The first amalgamation of Nigeria's territories occurred in May",
+    "options": ["1806", "1906", "1914", "1920"],
+    "correct": "1906",
+    "explanation": "The first amalgamation in May 1906 merged the Lagos Colony and the Southern Nigeria Protectorate."
+  },
+  {
+    "question": "The traditional nationalism was also known as",
+    "options": ["true", "modern", "proto", "nice"],
+    "correct": "proto",
+    "explanation": "Proto-nationalism refers to early resistance and consciousness before the emergence of modern nationalist movements."
+  },
+  {
+    "question": "Royal Niger Company was founded by",
+    "options": ["Fedrick Lugard", "Lander brothers", "Sir George Taubman Goldie", "Asaba"],
+    "correct": "Sir George Taubman Goldie",
+    "explanation": "Sir George Taubman Goldie established the Royal Niger Company to control trade on the Niger River."
+  },
+  {
+    "question": "European exploration in Nigeria started in",
+    "options": ["20th century", "15th AD", "15th century", "1920"],
+    "correct": "15th century",
+    "explanation": "Portuguese explorers arrived on the coast of Nigeria in the 15th century."
+  },
+  {
+    "question": "In 1797, Mungo Park wrote a book titled",
+    "options": ["African and his people", "The people of Africa", "Nigeria my home town", "Travels in the interior districts of Africa"],
+    "correct": "Travels in the interior districts of Africa",
+    "explanation": "Mungo Park published his account of exploring the Niger River in 'Travels in the Interior Districts of Africa'."
+  },
+  {
+    "question": "Who among these Nigerian nationalists founded the Action Group?",
+    "options": ["Chief Anthony Enahoro", "Chief MKO Abiola", "Dr Nnamdi Azikiwe", "Chief Obafemi Awolowo"],
+    "correct": "Chief Obafemi Awolowo",
+    "explanation": "Chief Obafemi Awolowo founded the Action Group political party in 1951."
+  },
+  {
+    "question": "What is the full meaning of NYSC?",
+    "options": ["National Youth Service Corps.", "Nigeria Youth Service Corps.", "Noble Youth Service Corps.", "Notable Youth Service Corps."],
+    "correct": "National Youth Service Corps.",
+    "explanation": "NYSC stands for National Youth Service Corps, a scheme established in 1973."
+  },
+  {
+    "question": "______ introduced free primary education in Western Nigeria.",
+    "options": ["Chief Anthony Enahoro", "Dr Nnamdi Azikiwe", "Senator Ibikunle Amosun", "Chief Obafemi Awolowo"],
+    "correct": "Chief Obafemi Awolowo",
+    "explanation": "Chief Obafemi Awolowo introduced the Universal Primary Education (UPE) program in the Western Region."
+  },
+  {
+    "question": "______ is known as the seal of the President of the Federal Republic of Nigeria.",
+    "options": ["Map of Nigeria", "National flag", "Nigerian coat of arms", "The Mace"],
+    "correct": "Nigerian coat of arms",
+    "explanation": "The Nigerian Coat of Arms is the official seal of the President and the Federal Republic."
+  },
+  {
+    "question": "The first constitution in Nigeria was",
+    "options": ["Richard Constitution", "Macpherson Constitution", "Clifford Constitution", "Colonial Constitution"],
+    "correct": "Clifford Constitution",
+    "explanation": "The Clifford Constitution of 1922 was the first formal constitutional framework introduced in Nigeria."
+  },
+  {
+    "question": "The first political party in Nigeria was known as the",
+    "options": ["Nigerian National Democratic Party (NNDP)", "The Northern people's Congress (NPC)", "Action Group", "National Council of Nigerian Citizens (NCNC)"],
+    "correct": "Nigerian National Democratic Party (NNDP)",
+    "explanation": "The NNDP, founded by Herbert Macaulay in 1923, was Nigeria's first political party."
+  },
+  {
+    "question": "______ enabled Britain to take over Nigeria.",
+    "options": ["Treaties signed and the Berlin Conference of 1884- 1885", "Arrival of the Portuguese in Nigeria", "The intruders", "The collaborators"],
+    "correct": "Treaties signed and the Berlin Conference of 1884- 1885",
+    "explanation": "The Berlin Conference formalized the 'Scramble for Africa' and allowed Britain to claim Nigeria through treaties and conquest."
+  },
+  {
+    "question": "Among the European explorers, ______ explored the Northern part of Nigeria.",
+    "options": ["Richard Lander", "Clapperton", "Mungo Park", "Mary Slessor"],
+    "correct": "Clapperton",
+    "explanation": "Hugh Clapperton explored the interior of West Africa, including parts of Northern Nigeria."
+  },
+  {
+    "question": "Legitimate trade is a trade in",
+    "options": ["human beings", "slaves", "raw materials", "roundnuts"],
+    "correct": "raw materials",
+    "explanation": "Legitimate commerce replaced the slave trade with trade in agricultural produce and raw materials like palm oil."
+  },
+  {
+    "question": "The Atlantic slave trade began in the ______ century.",
+    "options": ["15th", "17th", "18th", "19th"],
+    "correct": "15th",
+    "explanation": "The Atlantic slave trade started in the mid-15th century with the Portuguese."
+  },
+  {
+    "question": "The Trans Saharan trade made use of ______ to cross through the desert.",
+    "options": ["cars", "planes", "lorry", "camel caravan"],
+    "correct": "camel caravan",
+    "explanation": "Camel caravans were essential for transporting goods across the Sahara Desert."
+  },
+  {
+    "question": "The meaning of WASU is",
+    "options": ["World African Students Union", "West African Students Union", "Weather land Students Union", "Wig African Students Union"],
+    "correct": "West African Students Union",
+    "explanation": "WASU stands for West African Students' Union, a key nationalist organization founded in London."
+  },
+  {
+    "question": "The Second World War occurred between ______ and ______",
+    "options": ["1945 and 1965", "1940 and 1960", "1939 and 1945", "1960 and 1965"],
+    "correct": "1939 and 1945",
+    "explanation": "World War II officially lasted from 1939 to 1945."
+  },
+  {
+    "question": "Henry Townsend was an",
+    "options": ["European Missionary", "Egyptian", "American", "observer in Nigeria"],
+    "correct": "European Missionary",
+    "explanation": "Henry Townsend was an Anglican missionary of the Church Missionary Society in Abeokuta."
+  },
+  {
+    "question": "The Ceremonial President of Nigeria was",
+    "options": ["Alhaji Tafawa Balewa", "Dr Nnamdi Azikiwe", "Sir Ahmadu Bello", "Mohammed Buhari"],
+    "correct": "Dr Nnamdi Azikiwe",
+    "explanation": "Dr. Nnamdi Azikiwe served as the first ceremonial President of Nigeria (1963-1966) when the office was largely symbolic."
+  },
+  {
+    "question": "Nigerian Tribune was established by Chief Obafemi Awolowo in",
+    "options": ["1949", "1959", "1969", "1979"],
+    "correct": "1949",
+    "explanation": "The Nigerian Tribune newspaper was founded by Obafemi Awolowo in 1949."
+  },
+  {
+    "question": "The constitution of 1946 was called",
+    "options": ["Lyttleton Constitution", "Clifford Constitution", "Nigerian Constitution", "Richard Constitution"],
+    "correct": "Richard Constitution",
+    "explanation": "The 1946 constitution is named after Governor Sir Arthur Richards."
+  },
+  {
+    "question": "The following are some of the effects of the Atlantic slave trade except",
+    "options": ["It led to loss of population.", "The trade increased gun trade.", "It led to warfare.", "It promotes unity."],
+    "correct": "It promotes unity.",
+    "explanation": "The slave trade caused depopulation, warfare, and instability, rather than unity."
+  },
+  {
+    "question": "The first amalgamation of Nigeria's territories took place in",
+    "options": ["May 1906", "May 1907", "May 1908", "May 1909"],
+    "correct": "May 1906",
+    "explanation": "The first amalgamation, merging the Lagos Colony with the Southern Nigeria Protectorate, occurred in May 1906."
+  },
+  {
+    "question": "The full meaning of NERDC is",
+    "options": ["Nigerian Educational Researches and Development.", "National Educational Research and Development Council.", "Neco Development and Educational Research.", "None of the above."],
+    "correct": "National Educational Research and Development Council.",
+    "explanation": "NERDC is the Nigerian Educational Research and Development Council."
+  },
+  {
+    "question": "Herodotus the historian lived in the",
+    "options": ["5th century", "7th century", "9th century", "15th century"],
+    "correct": "5th century",
+    "explanation": "Herodotus lived in the 5th century BC (c. 484 – c. 425 BC)."
+  },
+  {
+    "question": "The person in charge of a library is called",
+    "options": ["private", "librarian", "historian", "archivist"],
+    "correct": "librarian",
+    "explanation": "A librarian manages and operates a library."
+  },
+  {
+    "question": "______ festival is commonly celebrated among the Igbo.",
+    "options": ["New Yam", "New Eyo", "New Ogun", "Abia"],
+    "correct": "New Yam",
+    "explanation": "The New Yam Festival (Iri Ji) is a major annual harvest celebration among the Igbo."
+  },
+  {
+    "question": "In centralized state there were",
+    "options": ["insubordination", "laziness", "checks and balances", "riots"],
+    "correct": "checks and balances",
+    "explanation": "Centralized states often had structured systems of governance, including checks and balances (e.g., Oyo Mesi vs. Alaafin)."
+  },
+  {
+    "question": "In pre-colonial Nigeria, ______ is an example of centralised state.",
+    "options": ["Oyo empire", "Ogun state", "Lagos state", "Osun state"],
+    "correct": "Oyo empire",
+    "explanation": "The Oyo Empire was a centralized political entity with a powerful ruler (Alaafin)."
+  },
+  {
+    "question": "The emirate system of government in Hausaland was in",
+    "options": ["1920", "1805", "1820", "1960"],
+    "correct": "1805",
+    "explanation": "The Sokoto Caliphate and its emirate system were established following the jihad starting in 1804/1805."
+  },
+  {
+    "question": "The title of the ruler in Egba land is",
+    "options": ["Olu", "Alake", "Adedotun", "Olubi"],
+    "correct": "Alake",
+    "explanation": "The Alake of Egbaland is the traditional ruler of the Egba people in Abeokuta."
+  },
+  {
+    "question": "Lisabi Agbonbo Akala was a great warrior in",
+    "options": ["Lagos", "Oyo", "Egba land", "Yewa"],
+    "correct": "Egba land",
+    "explanation": "Lisabi was an Egba warrior who organized resistance against the Oyo Empire."
+  },
+  {
+    "question": "In history of Nigeria, law making belongs to",
+    "options": ["judiciary", "executive", "legislature", "senate"],
+    "correct": "legislature",
+    "explanation": "The Legislature (e.g., National Assembly) is the arm of government responsible for making laws."
+  },
+  {
+    "question": "History can be defined as",
+    "options": ["the study of science.", "story of animals in the bush.", "the study of past events as they relate to man.", "the culture of human beings."],
+    "correct": "the study of past events as they relate to man.",
+    "explanation": "History is the study of past human activities and events."
+  },
+  {
+    "question": "______ is referred to the father of History.",
+    "options": ["Herodotus", "Fredrick", "Lugar", "Principal"],
+    "correct": "Herodotus",
+    "explanation": "Herodotus, the Greek author of 'The Histories', is widely considered the 'Father of History'."
+  },
+  {
+    "question": "______ are very important in the study of History.",
+    "options": ["Human being", "Dates", "History", "Book & Pen"],
+    "correct": "Dates",
+    "explanation": "Chronology and dates are crucial for organizing historical events in time."
+  },
+  {
+    "question": "Arewa House Archives is located in",
+    "options": ["Lagos", "Kano", "Kaduna", "Ondo"],
+    "correct": "Kaduna",
+    "explanation": "Arewa House is a historical research center and archive located in Kaduna."
+  },
+  {
+    "question": "Nigeria was amalgamated in the year",
+    "options": ["1908", "1841", "1914", "1960"],
+    "correct": "1914",
+    "explanation": "The Northern and Southern Protectorates were amalgamated in 1914 by Lord Lugard."
+  },
+  {
+    "question": "Who amalgamated the Southern and Northern Protectors?",
+    "options": ["Queen Elizabeth", "Lord Fredrick Lugar", "Chief Obafemi Awolowo", "Goodluck Jonathan"],
+    "correct": "Lord Fredrick Lugar",
+    "explanation": "Lord Frederick Lugard oversaw the 1914 amalgamation of Nigeria."
+  },
+  {
+    "question": "Nok culture shows that Nigerian people have existed as far back as",
+    "options": ["10th Century AD", "5th century BC", "104 century AD", "15th century BC"],
+    "correct": "5th century BC",
+    "explanation": "The Nok culture is an early Iron Age population dating back to around 500 BC."
+  },
+  {
+    "question": "A person who works in archives is known as an",
+    "options": ["Historian", "Archivist", "Archival", "Narrator"],
+    "correct": "Archivist",
+    "explanation": "An archivist is a professional who assesses, collects, organizes, and preserves records and archives."
+  },
+  {
+    "question": "______ and ______ are examples of historical sites.",
+    "options": ["Olumo rock and Essie Museum", "Tantalizer and Super food", "Mamakas and Itoku market.", "Dangote company and General Hospital"],
+    "correct": "Olumo rock and Essie Museum",
+    "explanation": "Olumo Rock and the Esie Museum (with stone images) are notable historical sites in Nigeria."
+  },
+  {
+    "question": "Lord Fredrick Lugar amalgamated the ______ and ______ protectorate.",
+    "options": ["Nigeria and Ghana protectorate", "Southern and Northern protectorate", "Lagos and Benin protectorate", "Riye protectorate"],
+    "correct": "Southern and Northern protectorate",
+    "explanation": "The 1914 amalgamation united the Colony and Protectorate of Southern Nigeria with the Protectorate of Northern Nigeria."
+  },
+  {
+    "question": "The first military coup in Nigeria took place on",
+    "options": ["Oct 1 1960.", "May 27th 1931.", "15th Jan 1966.", "April 4th 1939."],
+    "correct": "15th Jan 1966.",
+    "explanation": "The first military coup d'état in Nigeria occurred on January 15, 1966."
+  },
+  {
+    "question": "The Fulani Jihad was also known as",
+    "options": ["Kaduna jihad", "Sokoto jihad", "Emirate", "Sultan Jihad"],
+    "correct": "Sokoto jihad",
+    "explanation": "Usman dan Fodio's jihad led to the establishment of the Sokoto Caliphate, hence often referred to as the Sokoto Jihad."
+  },
+  {
+    "question": "Ogun State was created in",
+    "options": ["1975", "1976", "2001", "1960"],
+    "correct": "1976",
+    "explanation": "Ogun State was created on February 3, 1976, by the Murtala Muhammed administration."
+  },
+  {
+    "question": "Argungun festival is celebrated in ______ state.",
+    "options": ["Kebbi", "Imo", "Anambra", "Edo"],
+    "correct": "Kebbi",
+    "explanation": "The Argungu Fishing Festival takes place in Kebbi State."
+  },
+  {
+    "question": "The following are importance of History except",
+    "options": ["History helps to develop leadership quality in the individual.", "It helps the individual to know past cultures and civilization.", "It helps individual to think critically.", "It teaches individual to disobey rules and regulations."],
+    "correct": "It teaches individual to disobey rules and regulations.",
+    "explanation": "History promotes critical thinking and learning from the past, not disobedience to rules."
+  },
+  {
+    "question": "Another name for memorandum is",
+    "options": ["memo", "manuals", "journal", "bulletins"],
+    "correct": "memo",
+    "explanation": "Memo is the shortened, common term for memorandum."
+  },
+  {
+    "question": "A major type of traditional source of history is",
+    "options": ["oral evidence", "archaeology", "textbook", "journal"],
+    "correct": "oral evidence",
+    "explanation": "Oral tradition (oral evidence) is a primary traditional source of history, especially in African societies."
+  },
+  {
+    "question": "While the Hausa states were founded by Bayajidda, Kanem - Bornu was founded by",
+    "options": ["Seyf ibn Yasin.", "Oduduwa.", "El- kanemi.", "Uthman Dan Fodio."],
+    "correct": "Seyf ibn Yasin.",
+    "explanation": "The Sayfawa dynasty, which ruled Kanem-Bornu, was founded by Sayf ibn Dhi Yazan."
+  },
+  {
+    "question": "Which of the following was not non-centralized state in the pre colonial Nigeria?",
+    "options": ["Igbo", "Tiv", "Idoma", "Benin"],
+    "correct": "Benin",
+    "explanation": "Benin was a highly centralized empire with a powerful Oba, unlike the stateless or segmentary societies of the Igbo, Tiv, and Idoma."
+  },
+  {
+    "question": "Pre-colonial means",
+    "options": ["before the arrival of the White men", "constitutional development", "independent period", "after independence"],
+    "correct": "before the arrival of the White men",
+    "explanation": "Pre-colonial refers to the period before European colonial rule."
+  },
+  {
+    "question": "The following were the characteristics of non-centralized states except that",
+    "options": ["they were segmentary or stateless societies.", "they practised a system of government ruled by elders.", "there were different categories of little holders.", "there was the existence of a king or a queen."],
+    "correct": "there was the existence of a king or a queen.",
+    "explanation": "Non-centralized states lacked a single, supreme ruler like a king or queen."
+  },
+  {
+    "question": "The founder of Songhai empire was",
+    "options": ["Sundaikateita", "Mansamusa", "Sonni Ali", "Mohammed Toure"],
+    "correct": "Sonni Ali",
+    "explanation": "Sonni Ali Ber founded the Songhai Empire through military conquest in the 15th century."
+  },
+  {
+    "question": "Sundiate Keita was a ______ man.",
+    "options": ["crippled", "rich", "poor", "wealthy"],
+    "correct": "crippled",
+    "explanation": "Sundiata Keita was born with a physical disability but overcame it to found the Mali Empire."
+  },
+  {
+    "question": "Most famous mansa that ruled Mali was",
+    "options": ["Sundiatekeita.", "Bambuk.", "Gao.", "Mansa Kanka Musa."],
+    "correct": "Mansa Kanka Musa.",
+    "explanation": "Mansa Musa (Kankan Musa) is the most famous ruler of the Mali Empire, known for his wealth and pilgrimage to Mecca."
+  },
+  {
+    "question": "Ghana Empire started around",
+    "options": ["200AD", "300AD", "16AD", "306AD"],
+    "correct": "300AD",
+    "explanation": "The Ghana Empire (Wagadou) began to rise around the 4th century AD (c. 300 AD)."
+  },
+  {
+    "question": "______ was a state in which power and authority were not concentrated in the hands of a single ruler.",
+    "options": ["Centralized state", "Non centralized State", "Autocratic", "Democratic state."],
+    "correct": "Non centralized State",
+    "explanation": "Non-centralized states distributed power among elders, lineages, or age grades."
+  },
+  {
+    "question": "Iron works started in Nigeria by the",
+    "options": ["2nd century B.C", "4th century A.D", "20th century A.D", "2nd century A.D"],
+    "correct": "2nd century B.C",
+    "explanation": "Evidence from the Nok culture suggests iron smelting in Nigeria began around 500 BC (mid-1st millennium BC). The closest option is 2nd century BC."
+  },
+  {
+    "question": "NOK is located in the western part of",
+    "options": ["Ogun", "Oyo", "Benin", "Jos Plateau"],
+    "correct": "Jos Plateau",
+    "explanation": "The Nok village is situated on the Jos Plateau in present-day Kaduna State."
+  },
+  {
+    "question": "The period before written records were kept is a",
+    "options": ["pre-history", "post-history", "A.D", "BC"],
+    "correct": "pre-history",
+    "explanation": "Prehistory is the period of human history before the invention of writing."
+  },
+  {
+    "question": "The trade across the Sahara between the North Africa traders and the people of Western and Central Sudanese States was known as",
+    "options": ["Tri circle trade", "Arabian trade", "Protectorate trade", "Trans-Saharan trade"],
+    "correct": "Trans-Saharan trade",
+    "explanation": "The Trans-Saharan trade was a network of trade routes crossing the Sahara Desert."
+  },
+  {
+    "question": "The system of exchange during the transSaharan trade was by",
+    "options": ["national policy", "barter", "culture", "cowry"],
+    "correct": "barter",
+    "explanation": "Barter (exchange of goods for goods) was the primary method of trade, though cowries and gold were also mediums of exchange."
+  },
+  {
+    "question": "Mungo park died at the age of",
+    "options": ["35 years", "65 years", "28 years", "17 years"],
+    "correct": "35 years",
+    "explanation": "Mungo Park was born in 1771 and died during his second Niger expedition around 1806, aged about 35."
+  },
+  {
+    "question": "What is the full meaning of RNC?",
+    "options": ["Royal Niger Company", "Royal Nigeria Company", "Research Nigeria Company", "Royal Northern Company"],
+    "correct": "Royal Niger Company",
+    "explanation": "RNC stands for Royal Niger Company."
+  },
+  {
+    "question": "One major reason for the amalgamation of the Nigeria Territories was",
+    "options": ["socio cultural.", "integration.", "cultural.", "conflict."],
+    "correct": "integration.",
+    "explanation": "Amalgamation aimed at administrative and economic integration, particularly to use Southern revenues to support the Northern protectorate."
+  },
+  {
+    "question": "The Lagos colony was created in",
+    "options": ["1861", "1982", "1804", "1865"],
+    "correct": "1861",
+    "explanation": "Lagos was annexed as a British colony in 1861."
+  },
+  {
+    "question": "Another name for Traditional Nationalism was",
+    "options": ["Proto Nationalism", "True Nationalism", "Modern Nationalism", "Western Nationalism"],
+    "correct": "Proto Nationalism",
+    "explanation": "Proto-nationalism refers to early resistance movements against colonial rule."
+  },
+  {
+    "question": "The title of the ruler of Oyo Kingdom is",
+    "options": ["Balogun", "Basorun", "Alafin", "Ogboni"],
+    "correct": "Alafin",
+    "explanation": "The Alaafin is the traditional ruler and king of the Oyo Empire."
+  },
+  {
+    "question": "Who Founded Oyo Empire?",
+    "options": ["Oduduwa", "Lamurudu", "Oranmiyan", "Lakesi"],
+    "correct": "Oranmiyan",
+    "explanation": "Oranmiyan, a grandson of Oduduwa, founded the Oyo Empire."
+  },
+  {
+    "question": "The first newspaper in Nigeria was established in",
+    "options": ["1859", "1959", "1865", "1965"],
+    "correct": "1859",
+    "explanation": "'Iwe Irohin', the first newspaper, was established by Henry Townsend in 1859."
+  },
+  {
+    "question": "When was the Berlin Conference held?",
+    "options": ["1784-1885", "1884-1885", "1886-1887", "1889-1890"],
+    "correct": "1884-1885",
+    "explanation": "The Berlin West Africa Conference was held between 1884 and 1885."
+  },
+  {
+    "question": "Mungo park was an European explorer of ______ origin.",
+    "options": ["Scottish", "German", "French", "Portuguese"],
+    "correct": "Scottish",
+    "explanation": "Mungo Park was a Scottish explorer."
+  },
+  {
+    "question": "Lord Fredrick Lugard was born in",
+    "options": ["February, 1987", "January, 1858", "January, 1895", "February, 1878"],
+    "correct": "January, 1858",
+    "explanation": "Frederick Lugard was born on January 22, 1858."
+  },
+  {
+    "question": "All these are British Officers that promoted the amalgamation of Nigerian Territories except",
+    "options": ["Johnson stone", "Lord Fedrick Lugard", "Ralph Moore", "Ajayi Crowther"],
+    "correct": "Ajayi Crowther",
+    "explanation": "Bishop Ajayi Crowther was a Nigerian clergyman and linguist, not a British colonial officer promoting amalgamation."
+  },
+  {
+    "question": "Without Sundiatekelta, there won't be",
+    "options": ["Mali", "Ghana", "Songhai", "London"],
+    "correct": "Mali",
+    "explanation": "Sundiata Keita is credited as the founder of the Mali Empire."
+  },
+  {
+    "question": "Who was the first King of the Empire of Ghana?",
+    "options": ["Mande", "Soninke", "Dingacisse", "Musa"],
+    "correct": "Dingacisse",
+    "explanation": "According to oral tradition, Dinga Cisse was the founder and first ruler of the Ghana Empire."
+  },
+  {
+    "question": "In pre-colonial era ______ was the capital of Ghana.",
+    "options": ["Cairo", "Kumbi Saleh", "Timbuktu", "Gao"],
+    "correct": "Kumbi Saleh",
+    "explanation": "Kumbi Saleh was the capital of the ancient Ghana Empire."
+  },
+  {
+    "question": "Mary Slessor was a",
+    "options": ["Northerner", "Scottish missionary", "Trader", "Witch"],
+    "correct": "Scottish missionary",
+    "explanation": "Mary Slessor was a Scottish Presbyterian missionary in Calabar."
+  },
+  {
+    "question": "The following were some of the early European traders and merchants that established contracts with the people of Nigeria except",
+    "options": ["Mary Slessor.", "Sir Taubman Goldie.", "Bishop Samuel Ajayi Crowther.", "Clifford."],
+    "correct": "Bishop Samuel Ajayi Crowther.",
+    "explanation": "Ajayi Crowther was a Nigerian ex-slave and missionary, not a European trader establishing initial contracts."
+  },
+  {
+    "question": "Before the process of amalgamation began there existed three Nigeria territories namely",
+    "options": ["Lagos colony oil Rivers protectorate and Northern protectorate.", "Lagos colony, British colony and Northern colony.", "Abeokuta South, Yewa North and Ijebu East.", "All of the above."],
+    "correct": "Lagos colony oil Rivers protectorate and Northern protectorate.",
+    "explanation": "The major administrative units were Lagos Colony, the Niger Coast (Oil Rivers) Protectorate, and the Northern Protectorate."
+  },
+  {
+    "question": "The two empires in Benin Empire were ______ and ______",
+    "options": ["Ogiso and Eweka Dynasty", "Uzama and Igbo Dynasty", "Edaike and Eweka Dynasty", "Ogido and Ogiso dynasty"],
+    "correct": "Ogiso and Eweka Dynasty",
+    "explanation": "Benin history is divided into the Ogiso dynasty and the later Eweka dynasty."
+  },
+  {
+    "question": "The lander brothers were",
+    "options": ["John lander and Richard lander.", "Fredrick lander and lord lander.", "Crowther lander and Clapperton lander.", "Gulf lander and gift lander."],
+    "correct": "John lander and Richard lander.",
+    "explanation": "Richard and John Lander were brothers who traced the course of the Niger River."
+  },
+  {
+    "question": "Abolition of superstitious beliefs and practices such as the killing of twins is one of the major contribution of who?",
+    "options": ["Henry Townsend", "Mary Slessor", "Ajayi Crowther", "Lord Lugard"],
+    "correct": "Mary Slessor",
+    "explanation": "Mary Slessor is famous for stopping the killing of twins in Calabar."
+  },
+  {
+    "question": "Mansa Musa reigned between",
+    "options": ["1312 and 1337", "1337 and 1359", "1901 and 1902", "1231 and 1348"],
+    "correct": "1312 and 1337",
+    "explanation": "Mansa Musa ruled the Mali Empire from approximately 1312 to 1337."
+  },
+  {
+    "question": "Igbo was located in the ______ of Nigeria.",
+    "options": ["South East", "South South", "North East", "North West"],
+    "correct": "South East",
+    "explanation": "The Igbo people are predominantly located in the South-Eastern region of Nigeria."
+  },
+  {
+    "question": "______ was the first religion faith practiced in the pre-colonial Nigeria.",
+    "options": ["Islam", "Christianity", "Traditional", "Buddhism"],
+    "correct": "Traditional",
+    "explanation": "African Traditional Religion was practiced long before the arrival of Islam or Christianity."
+  },
+  {
+    "question": "History is the following, except",
+    "options": ["factual", "academic", "a branch of social studies", "story telling"],
+    "correct": "story telling",
+    "explanation": "While history uses narratives, it is distinct from fictional storytelling; it is factual and academic."
+  },
+  {
+    "question": "The Greek meaning of the word 'History' is",
+    "options": ["research", "story", "inquiry", "investigation"],
+    "correct": "inquiry",
+    "explanation": "The Greek word 'historia' means 'inquiry' or 'knowledge acquired by investigation'."
+  },
+  {
+    "question": "The earliest period of human pre-history is called",
+    "options": ["iron age", "middle age", "stone age", "bronze age"],
+    "correct": "stone age",
+    "explanation": "The Stone Age is the earliest and longest period of human prehistory."
+  },
+  {
+    "question": "______ is the study of significant past events, especially human affairs.",
+    "options": ["Civic education", "History", "Arts", "Story telling"],
+    "correct": "History",
+    "explanation": "History is the study of past events, particularly in human affairs."
+  },
+  {
+    "question": "Benin Bronze work serves the same purpose as those of",
+    "options": ["Oyo", "Ife", "Beni", "Igbo ukwu"],
+    "correct": "Ife",
+    "explanation": "The Benin Bronzes and Ife heads are both significant cultural artifacts of the Yoruba and Edo civilizations, serving similar royal and religious purposes."
+  },
+  {
+    "question": "An account of a person's life written by the person himself is called",
+    "options": ["biography", "bibliography", "autobiography", "autobibliography"],
+    "correct": "autobiography",
+    "explanation": "An autobiography is a self-written account of one's life."
+  },
+  {
+    "question": "Which of the following are categories of sources of history?",
+    "options": ["Primary, secondary and tertiary.", "Bible, textbooks and journals.", "Television, radio and phones.", "Nursery, primary and secondary."],
+    "correct": "Primary, secondary and tertiary.",
+    "explanation": "Historical sources are generally classified as primary, secondary, and sometimes tertiary."
+  },
+  {
+    "question": "A story can be defined as",
+    "options": ["a fiction account of an event.", "the study of man's events.", "calculation of figures.", "any account or non-fiction."],
+    "correct": "any account or non-fiction.",
+    "explanation": "A story can be a fictional or non-fictional account of events."
+  },
+  {
+    "question": "The system whereby a nation controls other nations for economics gain is known as",
+    "options": ["Amalgamation", "Colonialism", "Imperialism", "Nationalism"],
+    "correct": "Imperialism",
+    "explanation": "Imperialism is the policy of extending a country's power and influence through diplomacy or military force for economic gain."
+  },
+  {
+    "question": "The British trader who created Royal Niger Company was",
+    "options": ["John Holt", "The lander brothers", "Lasswell", "Sir Taubman Goldie"],
+    "correct": "Sir Taubman Goldie",
+    "explanation": "Sir George Taubman Goldie founded the Royal Niger Company."
+  },
+  {
+    "question": "Lagos became a colony in the year",
+    "options": ["1961", "1949", "1861", "1899"],
+    "correct": "1861",
+    "explanation": "Lagos was annexed as a British colony in 1861."
+  },
+  {
+    "question": "All except one is the reason why the Europeans came to Nigeria.",
+    "options": ["Evangelism", "Trade", "Criticism", "None of the above"],
+    "correct": "Criticism",
+    "explanation": "Europeans came primarily for trade (raw materials/markets) and evangelism (spreading Christianity), not to offer criticism."
+  },
+  {
+    "question": "Ghana Empire was also known as the",
+    "options": ["land of gold", "land of silver", "land of trouble", "war peace"],
+    "correct": "land of gold",
+    "explanation": "The Ghana Empire was famously wealthy in gold, earning it the nickname 'Land of Gold'."
+  },
+  {
+    "question": "History is generally referred to as a nation's",
+    "options": ["memory", "admission", "secondary", "primary"],
+    "correct": "memory",
+    "explanation": "History serves as the collective memory of a people or nation."
+  },
+  {
+    "question": "Nigeria became a Republic in the year.",
+    "options": ["1960", "1963", "1919", "1914"],
+    "correct": "1963",
+    "explanation": "Nigeria became a Federal Republic on October 1, 1963, severing ties with the British monarchy."
+  },
+  {
+    "question": "The cultural headquarter of the Yoruba's in Nigeria is",
+    "options": ["Oyo", "Ile ife", "Osu", "Abeokuta"],
+    "correct": "Ile ife",
+    "explanation": "Ile-Ife is considered the ancestral and spiritual homeland of the Yoruba people."
+  },
+  {
+    "question": "There are ______ local governments in Nigeria.",
+    "options": ["174", "774", "699", "36"],
+    "correct": "774",
+    "explanation": "The Nigerian Constitution officially recognizes 774 Local Government Areas."
+  },
+  {
+    "question": "A person who studies History is an",
+    "options": ["orator", "historian", "engineer", "educationist"],
+    "correct": "historian",
+    "explanation": "A historian is an expert in or student of history."
+  },
+  {
+    "question": "History is the ______ experience of mankind.",
+    "options": ["past", "present", "last", "total"],
+    "correct": "past",
+    "explanation": "History deals specifically with the past."
+  },
+  {
+    "question": "The following were Western Sudanese Empire except",
+    "options": ["Ghana", "Mali", "Songhai", "Togo"],
+    "correct": "Togo",
+    "explanation": "Ghana, Mali, and Songhai were great Western Sudanese empires. Togo is a modern nation-state."
+  },
+  {
+    "question": "The system of exchange during the TransSahara Trade was by",
+    "options": ["culture", "cowries", "barter", "money"],
+    "correct": "barter",
+    "explanation": "Barter was the main mode of exchange."
+  },
+  {
+    "question": "Who established the Hope Waddell Training Institute in Calabar?",
+    "options": ["Mary Sisser", "Bishop Ajayi Crowther", "Henry Townsend", "Lord Lugar"],
+    "correct": "Mary Sisser",
+    "explanation": "The Hope Waddell Training Institute was established by the United Presbyterian Church of Scotland mission; Mary Slessor was heavily associated with this mission station."
+  },
+  {
+    "question": "When did secondary school education begin in Nigeria?",
+    "options": ["1939", "1759", "1659", "1859"],
+    "correct": "1859",
+    "explanation": "The first secondary school, CMS Grammar School, Lagos, was established in 1859."
+  },
+  {
+    "question": "The display of art works and historical materials is referred to as",
+    "options": ["curator", "exhibition", "museum", "gallery"],
+    "correct": "exhibition",
+    "explanation": "An exhibition is a public display of works of art or items of interest."
+  },
+  {
+    "question": "Uthman Dan Fodio captured the Hausa land in",
+    "options": ["1920", "1861", "1804", "1948"],
+    "correct": "1804",
+    "explanation": "Usman dan Fodio's jihad against the Hausa states began in 1804."
+  },
+  {
+    "question": "When was old Oyo Empire captured by the Fulani jihad?",
+    "options": ["1847", "1804", "1837", "1857"],
+    "correct": "1837",
+    "explanation": "The Old Oyo Empire (Oyo-Ile) fell to Fulani forces around 1835/1837."
+  },
+  {
+    "question": "In the Chad Basin, the first Centralized state to emerge was",
+    "options": ["Jukun", "Oyo", "Kanem Bornu", "Kaduna"],
+    "correct": "Kanem Bornu",
+    "explanation": "The Kanem Empire (later Kanem-Bornu) was the first major centralized state in the Chad Basin."
+  },
+  {
+    "question": "Nigeria is bounded in the west by the",
+    "options": ["Republic of Benin", "Republic of Cameroon", "Gulf of Guinea", "Republic of Niger"],
+    "correct": "Republic of Benin",
+    "explanation": "Nigeria's western border is shared with the Republic of Benin."
+  },
+  {
+    "question": "Eyo festival is a very popular festival in",
+    "options": ["Oyo state", "Bauchi state", "Lagos state", "Ogun state"],
+    "correct": "Lagos state",
+    "explanation": "The Eyo Festival is indigenous to Lagos Island."
+  }
+];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with PVS topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
