@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Scholar's Camp - BUS STUDIES Practice</title>
+  <!-- Tailwind + Font Awesome + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .transition-smooth { transition: all 0.2s ease-in-out; }
+    .option-card { transition: transform 0.1s, border 0.2s, background 0.2s; cursor: pointer; }
+    .dark .option-card { background: #1f2937; border-color: #374151; }
+    .exam-container { max-width: 900px; margin: 0 auto; }
+    .timer-sticky { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-track { background: #1e293b; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    .ai-chat-window { max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-smooth">
+
+<!-- Firebase SDKs (CDN) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { 
+    getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-placeholder-example-key",
+    authDomain: "scholars-camp-demo.firebaseapp.com",
+    projectId: "scholars-camp-demo",
+    storageBucket: "scholars-camp-demo.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abc123def456"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firebaseReady = true;
+</script>
+
+<!-- Main App Container -->
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- Header with theme toggle & admin badge -->
+  <header class="border-b border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-graduation-cap text-2xl text-indigo-600 dark:text-indigo-400"></i>
+      <h1 class="text-xl font-bold tracking-tight">Scholar's Camp <span class="text-indigo-600 dark:text-indigo-400">BUS STUDIES</span></h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="themeToggle" class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center transition-smooth">
+        <i class="fas fa-sun dark:hidden"></i>
+        <i class="fas fa-moon hidden dark:inline"></i>
+      </button>
+      <button id="adminBtn" class="text-sm bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full font-medium border border-indigo-200 dark:border-indigo-700">
+        <i class="fas fa-user-shield mr-1"></i>Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View: Dashboard / Exam / Review / Admin / AI Tutor -->
+  <main class="flex-1 p-4 sm:p-6">
+    <!-- Dashboard Home -->
+    <div id="dashboardView" class="max-w-5xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 md:p-8 border border-gray-100 dark:border-gray-700">
+        <div class="text-center mb-6">
+          <div class="inline-flex p-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full mb-4">
+            <i class="fas fa-flask text-4xl text-indigo-600 dark:text-indigo-300"></i>
+          </div>
+          <h2 class="text-3xl font-bold">BUSINESS STUDIES</h2>
+          <p class="text-gray-500 dark:text-gray-400 mt-2">60 questions • 60 minutes • AI Tutor ready</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button id="startExamBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg transform transition hover:scale-[1.02]">
+            <i class="fas fa-play mr-2"></i>Start Exam
+          </button>
+          <button id="aiTutorBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-xl text-lg font-medium shadow">
+            <i class="fas fa-robot mr-2"></i>AI Tutor
+          </button>
+        </div>
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-database text-indigo-500"></i> <span id="questionCountDisplay">200+</span> Questions</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-clock"></i> 60 mins</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-chart-line"></i> Track progress</div>
+          <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg text-center"><i class="fas fa-lightbulb"></i> Explanations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exam View -->
+    <div id="examView" class="hidden exam-container">
+      <div class="timer-sticky bg-white/80 dark:bg-gray-800/90 p-3 rounded-2xl shadow-md mb-4 flex items-center justify-between border">
+        <div class="flex items-center gap-2"><i class="far fa-clock text-xl text-indigo-600"></i><span class="font-mono text-2xl font-bold" id="timerDisplay">60:00</span></div>
+        <div class="text-sm bg-indigo-100 dark:bg-indigo-900/40 px-4 py-1.5 rounded-full font-medium"><span id="currentQNumber">1</span>/60</div>
+        <button id="submitExamBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold"><i class="fas fa-check-double mr-1"></i>Submit</button>
+      </div>
+      
+      <!-- Question panel -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 md:p-7 border dark:border-gray-700 transition-smooth">
+        <div id="questionText" class="text-lg font-semibold mb-6">Loading...</div>
+        <div id="optionsContainer" class="space-y-3 mb-6"></div>
+        <div class="flex justify-between mt-4">
+          <button id="prevBtn" class="px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" disabled><i class="fas fa-chevron-left mr-1"></i>Prev</button>
+          <button id="nextBtn" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Next <i class="fas fa-chevron-right ml-1"></i></button>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-1 justify-center" id="progressDots"></div>
+    </div>
+
+    <!-- Review View -->
+    <div id="reviewView" class="hidden max-w-4xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">Exam Review</h2>
+          <button id="backToDashboardFromReview" class="text-indigo-600"><i class="fas fa-arrow-left mr-1"></i>Dashboard</button>
+        </div>
+        <div id="reviewSummary" class="bg-indigo-50 dark:bg-indigo-950/30 p-4 rounded-xl mb-6"></div>
+        <div id="reviewList" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard View -->
+    <div id="adminView" class="hidden max-w-6xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div class="flex items-center gap-3 mb-6"><i class="fas fa-crown text-indigo-500 text-2xl"></i><h2 class="text-2xl font-bold">Admin Dashboard</h2><button id="closeAdmin" class="ml-auto text-gray-500"><i class="fas fa-times"></i></button></div>
+        <div class="flex border-b mb-4">
+          <button class="adminTab active px-4 py-2 text-indigo-600 border-b-2 border-indigo-600" data-tab="questionsTab">📋 Questions</button>
+          <button class="adminTab px-4 py-2" data-tab="scoresTab">📊 Scores</button>
+        </div>
+        <div id="questionsTab" class="admin-panel">
+          <div class="flex justify-between mb-3"><h3>Manage Questions</h3><button id="addQuestionBtn" class="bg-indigo-600 text-white px-4 py-1.5 rounded"><i class="fas fa-plus mr-1"></i>Add</button></div>
+          <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b"><th class="p-2">Question</th><th>Options</th><th>Correct</th><th>Actions</th></tr></thead><tbody id="questionsTableBody"></tbody></table></div>
+          <div id="questionModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-2xl"><h3 id="modalTitle">Add Question</h3><form id="questionForm" class="space-y-3 mt-4"><input id="qText" placeholder="Question" class="w-full p-2 border rounded dark:bg-gray-700" required><div class="grid grid-cols-2 gap-2"><input id="optA" placeholder="Option A" class="p-2 border rounded" required><input id="optB" placeholder="Option B" class="p-2 border rounded" required><input id="optC" placeholder="Option C" class="p-2 border rounded" required><input id="optD" placeholder="Option D" class="p-2 border rounded" required></div><input id="correctAns" placeholder="Correct answer (exact text)" class="p-2 border rounded w-full" required><textarea id="explanation" placeholder="Detailed explanation" class="w-full p-2 border rounded" rows="2"></textarea><div class="flex justify-end gap-2"><button type="button" id="closeModalBtn" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Save</button></div></form></div>
+          </div>
+        </div>
+        <div id="scoresTab" class="admin-panel hidden">
+          <h3>Student Attempts</h3>
+          <div id="scoresList" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Tutor Chat View -->
+    <div id="aiTutorView" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow h-[600px] flex flex-col">
+        <div class="p-4 border-b flex items-center"><i class="fas fa-robot text-indigo-500 text-xl mr-2"></i><span class="font-bold">RNVE AI Tutor</span><button id="closeAiTutor" class="ml-auto"><i class="fas fa-times"></i></button></div>
+        <div id="chatMessages" class="flex-1 p-4 ai-chat-window space-y-3">
+          <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">👋 Hello! Ask me any BECE question from the syllabus.</div>
+        </div>
+        <div class="p-3 border-t flex gap-2"><input id="chatInput" type="text" placeholder="e.g., What is human trafficking?" class="flex-1 p-3 rounded-xl border dark:bg-gray-700"><button id="sendChatBtn" class="bg-indigo-600 text-white px-5 rounded-xl"><i class="fas fa-paper-plane"></i></button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- GLOBAL STATE ----------
+    let allQuestions = [];
+    let currentExamQuestions = [];
+    let userAnswers = {};
+    let examStartTime = null;
+    let timerInterval = null;
+    let currentIndex = 0;
+    let examSubmitted = false;
+    let db = null;
+    
+    // UI elements
+    const dashboardView = document.getElementById('dashboardView');
+    const examView = document.getElementById('examView');
+    const reviewView = document.getElementById('reviewView');
+    const adminView = document.getElementById('adminView');
+    const aiTutorView = document.getElementById('aiTutorView');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    // Dark mode
+    themeToggle.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    
+    // ---------- FIREBASE INIT ----------
+    function initFirebase() {
+      if (window.db) db = window.db;
+      else setTimeout(initFirebase, 100);
+    }
+    initFirebase();
+    
+    // ---------- COMPLETE PDF QUESTION BANK (200+ questions extracted from PVS 2018-2022) ----------
+    function getPDFQuestionBank() {
+      return [
+  {
+    "question": "A bank is set up to make",
+    "options": ["loss", "profit", "salary", "friends"],
+    "correct": "profit",
+    "explanation": "Banks are financial institutions established primarily to make profit through financial intermediation and services."
+  },
+  {
+    "question": "A department which deals with staff matters is",
+    "options": ["Personnel", "Administrative", "Sales department", "Purchase"],
+    "correct": "Personnel",
+    "explanation": "The Personnel department (also called Human Resources) handles recruitment, training, welfare, and other staff-related matters."
+  },
+  {
+    "question": "Furniture and fittings are examples of assets.",
+    "options": ["Floating", "Fixed", "Current", "Liabilities"],
+    "correct": "Fixed",
+    "explanation": "Furniture and fittings are fixed assets because they are long-term tangible assets used in business operations."
+  },
+  {
+    "question": "In shorthand, are sounds produced from two vowels as one.",
+    "options": ["Monothong", "Dipthong", "Triphone", "Vowel"],
+    "correct": "Dipthong",
+    "explanation": "A diphthong is a sound formed by the combination of two vowels in a single syllable."
+  },
+  {
+    "question": "All the following are types of Co-operative societies except",
+    "options": ["producer", "wholesaler", "Multipurpose", "Credit and thrift"],
+    "correct": "wholesaler",
+    "explanation": "Wholesaler is not a type of cooperative society; cooperatives include producer, consumer, credit and thrift, and multipurpose societies."
+  },
+  {
+    "question": "The role of insurance in commerce is essential to",
+    "options": ["insecure life and property", "invest the premium", "prevent wasteful venture", "minimize business risk"],
+    "correct": "minimize business risk",
+    "explanation": "Insurance helps businesses minimize and manage risks by providing financial protection against unforeseen losses."
+  },
+  {
+    "question": "There are vowels in pitman shorthand.",
+    "options": ["13", "5", "12", "8"],
+    "correct": "12",
+    "explanation": "Pitman shorthand has 12 vowel sounds represented by dots and dashes in different positions."
+  },
+  {
+    "question": "means careful reading of a document to detect any errors in spelling, punctuation, or grammar.",
+    "options": ["Manuscript", "Proof reading", "Correction sign", "Stencil"],
+    "correct": "Proof reading",
+    "explanation": "Proof reading is the process of carefully reviewing a document to identify and correct errors before final publication."
+  },
+  {
+    "question": "The person who receives and directs visitors in an organization is known as",
+    "options": ["clerk", "waiter", "receptionist", "engineer"],
+    "correct": "receptionist",
+    "explanation": "A receptionist is responsible for welcoming, receiving, and directing visitors in an organization."
+  },
+  {
+    "question": "A type of business owned and run by one person is known as",
+    "options": ["Partnership", "Company", "Public Enterprises", "Sole proprietorship"],
+    "correct": "Sole proprietorship",
+    "explanation": "Sole proprietorship is a business owned and operated by a single individual who bears all risks and enjoys all profits."
+  },
+  {
+    "question": "is a letter from one company to another or between an organization and its customers or clients.",
+    "options": ["Application letters", "Admission letters", "Business letter", "Request letter"],
+    "correct": "Business letter",
+    "explanation": "A business letter is formal correspondence between companies or between a company and its clients/customers."
+  },
+  {
+    "question": "The Coordinator of all other factors of production is",
+    "options": ["land", "capital", "entrepreneur", "labour"],
+    "correct": "entrepreneur",
+    "explanation": "The entrepreneur organizes and coordinates land, labour, and capital for production, bearing the risks."
+  },
+  {
+    "question": "All these are documents handled by a good receptionist except",
+    "options": ["Diary", "Visitors book", "Class Attendance registered", "Telephone Message pad"],
+    "correct": "Class Attendance registered",
+    "explanation": "Class attendance register is used in schools, not typically handled by a receptionist in a business organization."
+  },
+  {
+    "question": "The actual salary of a worker after deduction has been made is known as",
+    "options": ["Gross pay", "Total pay", "Net pay", "Fill pay"],
+    "correct": "Net pay",
+    "explanation": "Net pay is the amount remaining after all deductions (taxes, pension, etc.) have been made from gross salary."
+  },
+  {
+    "question": "Which of the following is NOT an extractive occupation?",
+    "options": ["Dentistry", "Farming", "Mining", "Forest"],
+    "correct": "Dentistry",
+    "explanation": "Dentistry is a professional service occupation, while extractive occupations involve taking natural resources from the earth or sea."
+  },
+  {
+    "question": "Shorthand is written according to",
+    "options": ["Phonetics", "Spelling", "Vowels", "Noise"],
+    "correct": "Phonetics",
+    "explanation": "Shorthand is written based on phonetics—how words sound when spoken, not their conventional spelling."
+  },
+  {
+    "question": "The part of typewriter depressed to create space between words is called",
+    "options": ["Tabulator", "Space Bar", "Margin", "Paper bail"],
+    "correct": "Space Bar",
+    "explanation": "The space bar is pressed to create spaces between words while typing."
+  },
+  {
+    "question": "The net profit is calculated in the",
+    "options": ["Balance sheet", "Cash Account", "Profit and loss", "Trading Account"],
+    "correct": "Profit and loss",
+    "explanation": "Net profit is determined in the Profit and Loss Account after deducting all expenses from gross profit."
+  },
+  {
+    "question": "A document that is written by the seller whenever the buyer has been undercharged is called",
+    "options": ["credit note", "debit note", "invoice", "return inward"],
+    "correct": "debit note",
+    "explanation": "A debit note is issued when a buyer has been undercharged, requesting additional payment."
+  },
+  {
+    "question": "One of the cash book meant for recording cash and cheque transactions is",
+    "options": ["One column cash book", "Petty cash book", "Double Column cash book", "Journal"],
+    "correct": "Double Column cash book",
+    "explanation": "A double column cash book has columns for both cash and bank (cheque) transactions."
+  },
+  {
+    "question": "Consonant 'P' in Pitman shorthand is represented by stroke.",
+    "options": ["heavy", "light", "thin", "small"],
+    "correct": "light",
+    "explanation": "In Pitman shorthand, the consonant 'P' is represented by a light stroke."
+  },
+  {
+    "question": "In the feature of market, there must be a",
+    "options": ["pencil and biro", "gold and silver", "buyer and seller", "coins"],
+    "correct": "buyer and seller",
+    "explanation": "A market requires the presence of both buyers and sellers for exchange to occur."
+  },
+  {
+    "question": "The role of advertising is to",
+    "options": ["hide the goods", "to spread the goods", "persuade customer", "transportation"],
+    "correct": "persuade customer",
+    "explanation": "Advertising aims to inform and persuade customers to purchase goods or services."
+  },
+  {
+    "question": "When a vowel comes before a consonant in pitman shorthand, it is placed",
+    "options": ["after the stroke", "behind the stroke", "before the stroke", "through the stroke"],
+    "correct": "before the stroke",
+    "explanation": "In Pitman shorthand, a vowel placed before a consonant is written before (to the left of) the consonant stroke."
+  },
+  {
+    "question": "All the following are documents used in wages office except",
+    "options": ["payslip", "time card", "payroll", "catalogue"],
+    "correct": "catalogue",
+    "explanation": "A catalogue is a listing of products for sale, not a wage-related document."
+  },
+  {
+    "question": "The profit which is paid to the shareholders of a company is known as",
+    "options": ["divided", "right", "dividend", "bond"],
+    "correct": "dividend",
+    "explanation": "Dividend is the portion of company profits distributed to shareholders."
+  },
+  {
+    "question": "Methods of buying do not include",
+    "options": ["Auction", "Sample", "Leaflet", "Inspection"],
+    "correct": "Leaflet",
+    "explanation": "Leaflet is an advertising medium, not a method of purchasing goods."
+  },
+  {
+    "question": "is a reward for being punctual and regular at work in an organization.",
+    "options": ["Interest", "Promptness", "Promotion", "Production"],
+    "correct": "Promotion",
+    "explanation": "Promotion is often given as recognition and reward for good work habits including punctuality and regularity."
+  },
+  {
+    "question": "All these are personal qualities of clerk except",
+    "options": ["Neatness", "Good secondary school", "Ability to deal with people", "Ability to assign people to work"],
+    "correct": "Ability to assign people to work",
+    "explanation": "Assigning work to others is typically a supervisory/managerial function, not a required quality of a clerk."
+  },
+  {
+    "question": "There are main factors of production.",
+    "options": ["5", "4", "3", "2"],
+    "correct": "4",
+    "explanation": "The four main factors of production are land, labour, capital, and entrepreneur."
+  },
+  {
+    "question": "Trial Balance is prepared to show",
+    "options": ["Mathematics supremacy", "Mathematics accuracy", "Errors in balance sheet", "Arithmetic accuracy of ledger entries."],
+    "correct": "Arithmetic accuracy of ledger entries.",
+    "explanation": "A trial balance checks the arithmetic accuracy of double-entry bookkeeping by ensuring debits equal credits."
+  },
+  {
+    "question": "The third group of consonants are made up of",
+    "options": ["6", "8", "10", "5"],
+    "correct": "8",
+    "explanation": "In Pitman shorthand, the third group of consonants consists of 8 strokes."
+  },
+  {
+    "question": "The Principal book of account is called",
+    "options": ["Journal", "Ledger", "Teller", "Record"],
+    "correct": "Ledger",
+    "explanation": "The ledger is the principal book of account where all transactions are classified into respective accounts."
+  },
+  {
+    "question": "In book keeping, opening stock is charged to the account.",
+    "options": ["debit side of profit and loss", "debit side of capital", "debit side of trading", "credit side of trading"],
+    "correct": "debit side of trading",
+    "explanation": "Opening stock is debited to the Trading Account as it represents goods available for sale at the start of the period."
+  },
+  {
+    "question": "Insurance against loss of goods carried by ship is",
+    "options": ["Marine", "Fire", "Burglary", "Life"],
+    "correct": "Marine",
+    "explanation": "Marine insurance covers loss or damage to ships and goods transported by sea."
+  },
+  {
+    "question": "The movement of liquid and gas from one place to another is called transportation.",
+    "options": ["Marine", "Water", "Road", "Pipeline"],
+    "correct": "Pipeline",
+    "explanation": "Pipeline transport is used specifically for moving liquids and gases over distances."
+  },
+  {
+    "question": "Vowels in Pitman shorthand are represented by",
+    "options": ["Vowel strokes", "Strokes and dashes", "Dots and Curve", "Dots and Dashes"],
+    "correct": "Dots and Dashes",
+    "explanation": "In Pitman shorthand, vowels are represented by dots and dashes placed in specific positions relative to consonant strokes."
+  },
+  {
+    "question": "Which of the following best describes a balance sheet?",
+    "options": ["It is an account.", "It is a ledger.", "It is nominal account.", "It is a statement."],
+    "correct": "It is a statement.",
+    "explanation": "A balance sheet is a financial statement showing assets, liabilities, and capital at a specific point in time."
+  },
+  {
+    "question": "Business owned and run by government is called",
+    "options": ["Partnership", "Public Enterprises", "Sole Trade", "Co-operative Societies", "Company"],
+    "correct": "Public Enterprises",
+    "explanation": "Public enterprises are business organizations owned and operated by the government."
+  },
+  {
+    "question": "Any place where the activities of an organization is co-ordinated is called",
+    "options": ["Meeting point", "Conference Arena", "Board", "Office"],
+    "correct": "Office",
+    "explanation": "An office is the central place where organizational activities are coordinated and administrative work is done."
+  },
+  {
+    "question": "is a financial institution where money and other valuable things are kept.",
+    "options": ["Warehouse", "Bank", "Store", "Restroom"],
+    "correct": "Bank",
+    "explanation": "A bank is a financial institution that accepts deposits and keeps money and valuables safely."
+  },
+  {
+    "question": "The regular money paid by the insured to the insurance company is called",
+    "options": ["Fees", "Dues", "Charges", "Premium"],
+    "correct": "Premium",
+    "explanation": "Premium is the amount paid periodically by the insured to the insurer for insurance coverage."
+  },
+  {
+    "question": "All these are rights of consumers except",
+    "options": ["Right to safety.", "Right to be informed.", "Right to vote.", "Right to be heard."],
+    "correct": "Right to vote.",
+    "explanation": "Right to vote is a political/civic right, not a consumer right. Consumer rights include safety, information, choice, and being heard."
+  },
+  {
+    "question": "The liability of a sole proprietorship is",
+    "options": ["Unlimited", "Limited", "very small", "undertaking by the bank"],
+    "correct": "Unlimited",
+    "explanation": "A sole proprietor has unlimited liability, meaning personal assets can be used to settle business debts."
+  },
+  {
+    "question": "The full meaning of CPC is called",
+    "options": ["Crime Protection Council", "Consumer Protest Council", "Consumer Protection Commission", "Consumer Protection Council"],
+    "correct": "Consumer Protection Council",
+    "explanation": "CPC stands for Consumer Protection Council, an agency that protects consumer rights and interests."
+  },
+  {
+    "question": "A person who buys a product for his or her consumption is known as",
+    "options": ["wholesaler", "consumer", "agency", "retailer"],
+    "correct": "consumer",
+    "explanation": "A consumer is the end user who purchases goods or services for personal use, not for resale."
+  },
+  {
+    "question": "The physical counting of goods in the store and comparing them with the figure in the book is",
+    "options": ["the bin card", "stock taking", "turnover", "physical counting"],
+    "correct": "stock taking",
+    "explanation": "Stock taking (stocktaking) is the physical verification of inventory quantities to compare with book records."
+  },
+  {
+    "question": "All these are functions of an office except",
+    "options": ["receiving information.", "distorting information.", "processing information.", "arranging information."],
+    "correct": "distorting information.",
+    "explanation": "An office should provide accurate information; distorting information is not a proper office function."
+  },
+  {
+    "question": "is the banker's bank.",
+    "options": ["Commercial bank", "Central bank", "Mortgage bank", "World bank"],
+    "correct": "Central bank",
+    "explanation": "The Central Bank serves as banker to other banks and regulates the banking system."
+  },
+  {
+    "question": "All these are components of business studies except",
+    "options": ["Geography", "Office practice", "Shorthand", "Commerce"],
+    "correct": "Geography",
+    "explanation": "Business studies typically includes Office Practice, Commerce, Shorthand, Typewriting, and Bookkeeping, not Geography."
+  },
+  {
+    "question": "A trade between two or more countries is called",
+    "options": ["international trade", "local trade", "domestic trade", "import trade"],
+    "correct": "international trade",
+    "explanation": "International trade involves the exchange of goods and services across national borders."
+  },
+  {
+    "question": "Balance extracted from the ledger account are used to prepare",
+    "options": ["trial balance", "trading account", "cash account", "balance sheet"],
+    "correct": "trial balance",
+    "explanation": "A trial balance is prepared by extracting balances from all ledger accounts to verify arithmetic accuracy."
+  },
+  {
+    "question": "is the reduction in the price of goods in order to encourage customers to buy large quantities.",
+    "options": ["discount", "promotion", "liabilities", "loan"],
+    "correct": "discount",
+    "explanation": "A discount is a price reduction offered to encourage bulk purchases or prompt payment."
+  },
+  {
+    "question": "What business organisation owe others is called?",
+    "options": ["Loan", "Assets", "Liabilities", "Cash"],
+    "correct": "Liabilities",
+    "explanation": "Liabilities are the debts or obligations a business owes to others."
+  },
+  {
+    "question": "Labour is rewarded with",
+    "options": ["rent", "capital", "wages", "interest"],
+    "correct": "wages",
+    "explanation": "Labour receives wages or salaries as reward for services rendered."
+  },
+  {
+    "question": "is the hand written materials which needs to be typed in a readable way",
+    "options": ["type script", "manuscript", "proof feed", "stencil"],
+    "correct": "manuscript",
+    "explanation": "A manuscript is a handwritten document that needs to be typed or prepared for publication."
+  },
+  {
+    "question": "An office material in which personal data of staff are kept is called",
+    "options": ["cupboard", "shelf", "file cabinet", "wood box"],
+    "correct": "file cabinet",
+    "explanation": "A file cabinet is used to store and organize personnel records and other office documents."
+  },
+  {
+    "question": "A telephone call within a town is called",
+    "options": ["emergency", "trunk", "local", "sudden"],
+    "correct": "local",
+    "explanation": "A local call is a telephone call made within the same town or local exchange area."
+  },
+  {
+    "question": "A girl bought 50 brio at N30.00 each, how much would she pay for all?",
+    "options": ["N100.00", "N150.00", "N1,500.00", "N1,000.00"],
+    "correct": "N1,500.00",
+    "explanation": "50 × N30 = N1,500.00 total cost."
+  },
+  {
+    "question": "Wealth set aside for further production is called",
+    "options": ["bank", "cash", "capital", "income"],
+    "correct": "capital",
+    "explanation": "Capital refers to wealth used to produce more wealth or goods and services."
+  },
+  {
+    "question": "Production is",
+    "options": ["satisfaction", "creation of utilities", "purchasing of goods", "consumption of goods"],
+    "correct": "creation of utilities",
+    "explanation": "Production is the creation of utilities—making goods and services that satisfy human wants."
+  },
+  {
+    "question": "Which of the following will be reduced by return outward",
+    "options": ["sales", "debtors", "purchases", "debit"],
+    "correct": "purchases",
+    "explanation": "Returns outward (purchases returns) reduce the total purchases figure as goods are returned to suppliers."
+  },
+  {
+    "question": "The full meaning of GSM is",
+    "options": ["Global System of Mobile Communication.", "Global system for Mobile Communication.", "Global System is Mobile Communication.", "Global system on Mobile Communication."],
+    "correct": "Global System for Mobile Communication.",
+    "explanation": "GSM stands for Global System for Mobile Communications, a standard for digital cellular networks."
+  },
+  {
+    "question": "The financial institutions that accept deposit and grant loan to their customer is called",
+    "options": ["Central bank", "Commercial bank", "World bank", "Mortgage bank"],
+    "correct": "Commercial bank",
+    "explanation": "Commercial banks accept deposits from customers and provide loans and other financial services."
+  },
+  {
+    "question": "Consonants in shorthand are represented by",
+    "options": ["curves and dashes", "curves and strokes", "dots and dashes", "sign alone"],
+    "correct": "curves and strokes",
+    "explanation": "In Pitman shorthand, consonants are represented by geometric strokes and curves."
+  },
+  {
+    "question": "is the transfer of risk of life or properties.",
+    "options": ["Banking", "Insurance", "Will", "Store"],
+    "correct": "Insurance",
+    "explanation": "Insurance is a mechanism for transferring risk from an individual or business to an insurance company."
+  },
+  {
+    "question": "The last link on the chain of production is the",
+    "options": ["transporter", "consumer", "wholesaler", "manufacturer"],
+    "correct": "consumer",
+    "explanation": "The consumer is the final link in the chain of production, using the finished goods."
+  },
+  {
+    "question": "The death of the owner may end business",
+    "options": ["partnership", "co-operative", "joint stock", "sole trade"],
+    "correct": "sole trade",
+    "explanation": "A sole proprietorship often ends with the owner's death as there's no legal separation between owner and business."
+  },
+  {
+    "question": "Utilities means",
+    "options": ["production", "satisfaction", "deduction", "creation"],
+    "correct": "satisfaction",
+    "explanation": "Utility refers to the satisfaction or benefit derived from consuming a good or service."
+  },
+  {
+    "question": "is the arrangement of wants according to priorities.",
+    "options": ["Choice", "Scarcity", "Scale of preference", "Opportunity cost"],
+    "correct": "Scale of preference",
+    "explanation": "A scale of preference is a list of wants arranged in order of importance or priority."
+  },
+  {
+    "question": "The ledger account is divided vertically into",
+    "options": ["2", "3", "4", "5"],
+    "correct": "2",
+    "explanation": "A ledger account is divided into two sides: debit (left) and credit (right)."
+  },
+  {
+    "question": "One of these is not a book of original entry?",
+    "options": ["purchase day book", "ledger", "sales day book", "return outward day book"],
+    "correct": "ledger",
+    "explanation": "The ledger is a book of secondary entry (principal book), not a book of original/prime entry."
+  },
+  {
+    "question": "What is regarded as 'Gift of Nature'?",
+    "options": ["Production", "Land", "Labour", "Capital"],
+    "correct": "Land",
+    "explanation": "Land is considered a free gift of nature, including all natural resources used in production."
+  },
+  {
+    "question": "A cheque presented after six months of issuance is a cheque",
+    "options": ["stale", "post dated", "pre dated", "bounced"],
+    "correct": "stale",
+    "explanation": "A stale cheque is one presented for payment after six months from the date of issue and will not be honored by the bank."
+  },
+  {
+    "question": "Exchange of goods for goods is called",
+    "options": ["trade by barter", "trade", "sales", "bata"],
+    "correct": "trade by barter",
+    "explanation": "Trade by barter is the direct exchange of goods for goods without using money."
+  },
+  {
+    "question": "The fastest means of transportation is?",
+    "options": ["Land", "Air", "Pipeline", "Water"],
+    "correct": "Air",
+    "explanation": "Air transportation is the fastest mode of travel for both passengers and cargo."
+  },
+  {
+    "question": "An office equipment use to fasten several loose papers together is called",
+    "options": ["stapler", "gum", "office pin", "perforator"],
+    "correct": "stapler",
+    "explanation": "A stapler is used to fasten multiple sheets of paper together with metal staples."
+  },
+  {
+    "question": "All of the following are means of advertising except",
+    "options": ["television", "bill board", "newspaper", "travelling"],
+    "correct": "travelling",
+    "explanation": "Travelling is a means of transportation, not an advertising medium."
+  },
+  {
+    "question": "The central point of an organization is an",
+    "options": ["school", "office", "shop", "market"],
+    "correct": "office",
+    "explanation": "The office serves as the central coordinating point for all organizational activities."
+  },
+  {
+    "question": "advertising is designed to convince or persuade more customers to buy a particular product at the expenses of other product.",
+    "options": ["Mass", "Competitive", "Informative", "Educative"],
+    "correct": "Competitive",
+    "explanation": "Competitive advertising aims to persuade customers to choose one brand over competitors' products."
+  },
+  {
+    "question": "is like the picture of all items in the store.",
+    "options": ["Delivery", "Gatepass", "Stock record card", "Stock balance"],
+    "correct": "Stock record card",
+    "explanation": "A stock record card provides a detailed picture or record of all inventory items, including receipts and issues."
+  },
+  {
+    "question": "A public liability company can be formed by a minimum of people.",
+    "options": ["seven", "fifty", "ten", "twenty"],
+    "correct": "seven",
+    "explanation": "A public limited liability company requires a minimum of seven shareholders/members to be formed."
+  },
+  {
+    "question": "is an evidence of payment.",
+    "options": ["Invoice", "Cheque", "Receipt", "Payslip"],
+    "correct": "Receipt",
+    "explanation": "A receipt is a document issued as proof that payment has been received."
+  },
+  {
+    "question": "are arranged according to the letter of the alphabet?",
+    "options": ["Numerical filing", "Alphabetical filing", "Geographical filing", "Subject filing"],
+    "correct": "Alphabetical filing",
+    "explanation": "Alphabetical filing system arranges documents by the letters of the alphabet (A-Z)."
+  },
+  {
+    "question": "One of the function of the Central Bank of Nigeria is to",
+    "options": ["give loan to traders.", "carry money from Lagos to Abeokuta.", "print naira note and mint kobo coin.", "print passport photographs."],
+    "correct": "print naira note and mint kobo coin.",
+    "explanation": "The Central Bank of Nigeria has the sole authority to issue currency (print naira notes and mint kobo coins)."
+  },
+  {
+    "question": "Return inward book is also known as",
+    "options": ["purchase returns", "purchase journals", "return outward", "sales return"],
+    "correct": "sales return",
+    "explanation": "Returns inward book records goods returned by customers (sales returns)."
+  },
+  {
+    "question": "Things bought are called purchases while those sold are called?",
+    "options": ["Discount", "Salary", "Trade", "Sales"],
+    "correct": "Sales",
+    "explanation": "Goods purchased are called purchases; goods sold are called sales."
+  },
+  {
+    "question": "Which of the following is not a commercial bank?",
+    "options": ["Central bank", "Wema bank", "Union bank", "Skye bank"],
+    "correct": "Central bank",
+    "explanation": "Central Bank is not a commercial bank; it is the apex regulatory bank."
+  },
+  {
+    "question": "Division of labour output",
+    "options": ["decreases", "increases", "releases", "disallows"],
+    "correct": "increases",
+    "explanation": "Division of labour increases output by improving efficiency and specialization."
+  },
+  {
+    "question": "A business card is also known as",
+    "options": ["office card", "introductory card", "holder's card", "identity card"],
+    "correct": "identity card",
+    "explanation": "A business card serves as an identity card containing the bearer's name, company, and contact information."
+  },
+  {
+    "question": "A document which shows the full details of worker's pay is called",
+    "options": ["pay slip", "pay roll", "voucher", "store record"],
+    "correct": "pay slip",
+    "explanation": "A payslip provides an employee with a detailed breakdown of earnings and deductions for a pay period."
+  },
+  {
+    "question": "are assets that are not permanent in nature?",
+    "options": ["Fixed asset", "Liabilities", "Current assets", "Tangible assets"],
+    "correct": "Current assets",
+    "explanation": "Current assets are short-term assets that change in value frequently and are not held permanently (e.g., cash, stock)."
+  },
+  {
+    "question": "The two kinds of partners are",
+    "options": ["fixed and rotating", "ordinary and limited", "risk and social", "passive and active"],
+    "correct": "ordinary and limited",
+    "explanation": "Partners can be general (ordinary) partners with unlimited liability or limited partners with restricted liability."
+  },
+  {
+    "question": "All these are natural product except",
+    "options": ["Groundnut", "Timber", "Shoes", "Cocoa"],
+    "correct": "Shoes",
+    "explanation": "Shoes are manufactured products; groundnuts, timber, and cocoa are natural products."
+  },
+  {
+    "question": "There are types of foreign trade.",
+    "options": ["5", "2", "3", "4"],
+    "correct": "2",
+    "explanation": "Foreign trade has two main types: import trade and export trade."
+  },
+  {
+    "question": "For general cleaning of typewriter, use",
+    "options": ["petrol", "engine oil", "grease", "methylated spirit"],
+    "correct": "methylated spirit",
+    "explanation": "Methylated spirit is used to clean typewriter parts as it removes dirt without leaving residue or causing damage."
+  },
+  {
+    "question": "The certain amount given to petty cashier at the beginning of the month is known as",
+    "options": ["imprest", "cash", "float", "loan"],
+    "correct": "imprest",
+    "explanation": "An imprest is a fixed amount given to a petty cashier to cover small expenses for a specific period."
+  },
+  {
+    "question": "An office machine used to add figure is called",
+    "options": ["typewriter", "sharpner", "calculator", "punch"],
+    "correct": "calculator",
+    "explanation": "A calculator is an electronic device used for performing arithmetic calculations and adding figures."
+  },
+  {
+    "question": "Which of these is not an e-banking payment method?",
+    "options": ["Money order", "ATM", "Autoplay", "Value"],
+    "correct": "Money order",
+    "explanation": "Money order is a traditional paper-based payment method, not an electronic banking method."
+  },
+  {
+    "question": "is a machine used in an office to reproduce hand written documents in a typed form.",
+    "options": ["Memo", "Minute", "Typewriter", "Calculator"],
+    "correct": "Typewriter",
+    "explanation": "A typewriter is used to produce typed documents from handwritten manuscripts."
+  },
+  {
+    "question": "How many consonants are in there in Pitman shorthand?",
+    "options": ["20", "25", "24", "26"],
+    "correct": "24",
+    "explanation": "Pitman shorthand has 24 consonant sounds represented by strokes and curves."
+  },
+  {
+    "question": "is an act of repaying money spent on one's behalf.",
+    "options": ["Impress", "Re-impulse", "Re-imbursement", "Cash float"],
+    "correct": "Re-imbursement",
+    "explanation": "Reimbursement is the act of repaying someone who has spent their own money on behalf of another or an organization."
+  },
+  {
+    "question": "All these are principles of insurance except",
+    "options": ["utmost good faith", "dividend", "indemnity", "subrogation"],
+    "correct": "dividend",
+    "explanation": "Dividend is a return on investment, not a principle of insurance. Insurance principles include utmost good faith, indemnity, insurable interest, subrogation, and proximate cause."
+  },
+  {
+    "question": "The method by which duties are carried out in respect of the performance of business activities of an organization is called",
+    "options": ["business studies", "office procedure", "service render", "office performance"],
+    "correct": "office procedure",
+    "explanation": "Office procedure refers to the established methods and routines for carrying out office duties and activities."
+  },
+  {
+    "question": "The money which we use to commence business is called",
+    "options": ["cash at hand", "current", "capital", "production"],
+    "correct": "capital",
+    "explanation": "Capital is the money or assets used to start and operate a business."
+  },
+  {
+    "question": "is about being responsible to someone for actions taken about being able to explain, clarify and justify actions.",
+    "options": ["Transactions", "Transparency", "Accountability", "Probity"],
+    "correct": "Accountability",
+    "explanation": "Accountability means being answerable and responsible for one's actions and decisions."
+  },
+  {
+    "question": "The left hand side of cash book is",
+    "options": ["debit", "credit", "folio", "discount"],
+    "correct": "debit",
+    "explanation": "In a cash book, the left side is the debit side where receipts are recorded."
+  },
+  {
+    "question": "All the following are the types of cooperative society except",
+    "options": ["farmer", "thrift and credit", "robbery", "producer"],
+    "correct": "robbery",
+    "explanation": "Robbery is a criminal act, not a type of cooperative society."
+  },
+  {
+    "question": "The balance sheet is divided into two parts namely",
+    "options": ["left and right side", "fixed and current assets side", "assets and liabilities side", "credit and debit side"],
+    "correct": "assets and liabilities side",
+    "explanation": "A balance sheet is divided into assets (what the business owns) and liabilities/capital (what it owes)."
+  },
+  {
+    "question": "The Apex Bank in Nigeria is",
+    "options": ["First Bank of Nigeria", "Union Bank of Nigeria", "Stanbic Bank Plc.", "Central Bank of Nigeria"],
+    "correct": "Central Bank of Nigeria",
+    "explanation": "The Central Bank of Nigeria (CBN) is the apex financial institution that regulates all other banks in Nigeria."
+  },
+  {
+    "question": "The following are consumer protection agencies except",
+    "options": ["Nigeria Organization Agency", "National Communication Commission", "Standard Organization of Nigeria", "Consumer Protection Council"],
+    "correct": "Nigeria Organization Agency",
+    "explanation": "Nigeria Organization Agency is not a recognized consumer protection agency. Others are genuine consumer protection bodies."
+  },
+  {
+    "question": "In manufacturing account, raw materials is an example of expenses.",
+    "options": ["direct", "indirect", "primary", "secondary"],
+    "correct": "direct",
+    "explanation": "Raw materials are direct expenses because they can be directly traced to the production of specific goods."
+  },
+  {
+    "question": "The abbreviation 'LTD' stands for",
+    "options": ["License", "Limited", "Lend", "Light"],
+    "correct": "Limited",
+    "explanation": "LTD is the abbreviation for Limited, indicating a limited liability company."
+  },
+  {
+    "question": "One of the following is not an aid to trade.",
+    "options": ["Warehousing", "Advertising", "Selling", "Insurance"],
+    "correct": "Selling",
+    "explanation": "Selling is the main purpose of trade itself; aids to trade include banking, insurance, advertising, warehousing, transportation, and communication."
+  },
+  {
+    "question": "A telephone call between people in different countries is known as call.",
+    "options": ["International", "State", "Local", "Trunk"],
+    "correct": "International",
+    "explanation": "An international call connects people across different countries."
+  },
+  {
+    "question": "All these are GSM operators in Nigeria except",
+    "options": ["Airtel", "MTN", "GLO", "DHL"],
+    "correct": "DHL",
+    "explanation": "DHL is a courier/logistics company, not a GSM telecommunications operator."
+  },
+  {
+    "question": "A place where goods are kept until they are needed is called",
+    "options": ["shop", "office", "warehouse", "home"],
+    "correct": "warehouse",
+    "explanation": "A warehouse is a building used for storing goods before they are distributed or sold."
+  },
+  {
+    "question": "is a person employed to perform administrative, clerical, official duties in an office.",
+    "options": ["Junior staff", "Office staff", "Clerical staff", "Officer"],
+    "correct": "Clerical staff",
+    "explanation": "Clerical staff are employees who perform routine administrative and office duties."
+  },
+  {
+    "question": "is what is owed and due for payment within a short time.",
+    "options": ["Balance", "Balance sheet", "Loan", "Liabilities"],
+    "correct": "Liabilities",
+    "explanation": "Liabilities (specifically current liabilities) are amounts owed that must be paid within a short period."
+  },
+  {
+    "question": "is the amount of goods a firm has at the beginning of a trading period.",
+    "options": ["Return inwards", "Return outwards", "Opening stock", "Closing stock"],
+    "correct": "Opening stock",
+    "explanation": "Opening stock is the value of inventory at the start of an accounting period."
+  },
+  {
+    "question": "The importance of business studies does not include one of these:",
+    "options": ["provide opportunities for self employment.", "provide opportunities for making appropriate career.", "provide opportunities for smuggling production of goods and services.", "provide opportunities for making better investment decision."],
+    "correct": "provide opportunities for smuggling production of goods and services.",
+    "explanation": "Smuggling is illegal; business studies promotes legitimate business activities."
+  },
+  {
+    "question": "can be defined as a place set aside for performing clerical and administrative duties in an organization.",
+    "options": ["Purchasing", "Administrative", "Office", "Market"],
+    "correct": "Office",
+    "explanation": "An office is a designated space where clerical and administrative work is performed."
+  },
+  {
+    "question": "Which of the following is not traditional means of communication?",
+    "options": ["Town criers", "GSM", "Gun shooting", "Wooden drum"],
+    "correct": "GSM",
+    "explanation": "GSM (mobile phones) is a modern means of communication, while town criers, gun shots, and wooden drums are traditional methods."
+  },
+  {
+    "question": "Which of the following factors of production receives interest as its reward?",
+    "options": ["Entrepreneur", "Agent", "Land", "Capital"],
+    "correct": "Capital",
+    "explanation": "Capital receives interest as its reward; land receives rent; labour receives wages; entrepreneur receives profit."
+  },
+  {
+    "question": "Creating demands and selling goods to the customers are done in the",
+    "options": ["production department", "sales department", "purchasing department", "finance department"],
+    "correct": "sales department",
+    "explanation": "The sales department is responsible for creating demand and selling goods to customers."
+  },
+  {
+    "question": "The movement of people and goods from one place to another is called",
+    "options": ["banking", "advertising", "communication", "transportation"],
+    "correct": "transportation",
+    "explanation": "Transportation is the movement of people, goods, and services from one location to another."
+  },
+  {
+    "question": "is the given detailed account of all items of goods, raw materials, finished goods which are kept in a store.",
+    "options": ["Stock taking", "Store records", "Stock card", "Requisition form"],
+    "correct": "Store records",
+    "explanation": "Store records provide a detailed account of all inventory items kept in storage."
+  },
+  {
+    "question": "External trade is divided into",
+    "options": ["two", "three", "four", "five"],
+    "correct": "two",
+    "explanation": "External (foreign) trade is divided into two main categories: import and export trade."
+  },
+  {
+    "question": "is a document used by the buyers to find out from various suppliers whether certain goods are in store.",
+    "options": ["Quotation", "Receipt", "Letter of enquiry", "Order"],
+    "correct": "Letter of enquiry",
+    "explanation": "A letter of enquiry is sent to suppliers to inquire about the availability and price of goods."
+  },
+  {
+    "question": "is a market where businessmen obtain long term loans in order to generate capital for their business.",
+    "options": ["Commodity market", "Money market", "Capital market", "Supermarket"],
+    "correct": "Capital market",
+    "explanation": "The capital market provides long-term funding and investment for businesses through stocks and bonds."
+  },
+  {
+    "question": "The money used to start a business is referred to as",
+    "options": ["Naira", "Kobo", "Capital", "Dollar"],
+    "correct": "Capital",
+    "explanation": "Capital refers to the money or resources used to establish and run a business."
+  },
+  {
+    "question": "Which of the following can be found in an office?",
+    "options": ["Chairs", "Tables", "File cabinets", "All of the above"],
+    "correct": "All of the above",
+    "explanation": "Chairs, tables, and file cabinets are all common office furniture and equipment."
+  },
+  {
+    "question": "The branch of commerce that covers business risks is known as",
+    "options": ["transport", "communication", "insurance", "banking"],
+    "correct": "insurance",
+    "explanation": "Insurance is the branch of commerce that provides protection against various business risks."
+  },
+  {
+    "question": "'Run on' in typewriting means",
+    "options": ["ignore correction", "close up", "new paragraph", "continue"],
+    "correct": "continue",
+    "explanation": "In typewriting, 'run on' means to continue typing without starting a new paragraph."
+  },
+  {
+    "question": "is the act of representing spoken sound by written signs.",
+    "options": ["Commerce", "Typewriting", "Longhand", "Shorthand"],
+    "correct": "Shorthand",
+    "explanation": "Shorthand is a system of writing that uses symbols to represent spoken sounds quickly."
+  },
+  {
+    "question": "department is responsible for the recruitment, discipline, promotion and dismissal of staff.",
+    "options": ["Personnel", "Marketing", "Accounts", "Sales"],
+    "correct": "Personnel",
+    "explanation": "The Personnel (Human Resources) department handles all staff-related matters including recruitment and discipline."
+  },
+  {
+    "question": "simply means the number of times a retailer replenish stock.",
+    "options": ["Net profit", "Turn over", "Multiplication", "average stock"],
+    "correct": "Turn over",
+    "explanation": "Stock turnover refers to how frequently inventory is sold and replaced over a period."
+  },
+  {
+    "question": "The movable part of the typewriter which travels from right to the left when a key is struck is known as",
+    "options": ["rollers", "carriage", "paper bills", "paper grips"],
+    "correct": "carriage",
+    "explanation": "The carriage is the moving part of a typewriter that holds the paper and moves as keys are struck."
+  },
+  {
+    "question": "Business formed by two to twenty people is called",
+    "options": ["private business", "sole trade business", "partnership", "public company"],
+    "correct": "partnership",
+    "explanation": "A partnership is a business owned by two to twenty persons who share profits and liabilities."
+  },
+  {
+    "question": "The type of cashbook used to record cash and cheque transactions is column cash book.",
+    "options": ["single", "two", "three", "petty cash book"],
+    "correct": "two",
+    "explanation": "A two-column cash book has separate columns for cash and bank (cheque) transactions."
+  },
+  {
+    "question": "An office machine used to make holes neatly in paper before they are put in a file is",
+    "options": ["office pin", "stapler", "perforator", "calculator"],
+    "correct": "perforator",
+    "explanation": "A perforator (hole punch) is used to make holes in paper for filing in binders or folders."
+  },
+  {
+    "question": "Another name for mail is",
+    "options": ["document", "letter", "passport", "call"],
+    "correct": "letter",
+    "explanation": "Mail is commonly referred to as letters or postal correspondence."
+  },
+  {
+    "question": "A room that contains few workers to carry out their clerical and administration work is",
+    "options": ["staffroom", "large office", "small office", "secretary office"],
+    "correct": "small office",
+    "explanation": "A small office is designed for a limited number of workers to perform clerical duties."
+  },
+  {
+    "question": "The fastest means of transportation but most risky is transportation.",
+    "options": ["road", "pipeline", "air", "rail"],
+    "correct": "air",
+    "explanation": "Air transport is the fastest but considered most risky due to potential for catastrophic accidents."
+  },
+  {
+    "question": "A department which deals with staff recruitment, promotion and welfare is known as",
+    "options": ["sales department", "administrative department", "personnel department", "marketing department"],
+    "correct": "personnel department",
+    "explanation": "The personnel department handles all matters relating to employees."
+  },
+  {
+    "question": "is the mirror of an organization.",
+    "options": ["Reception", "Receptionist", "Bursar", "Security"],
+    "correct": "Receptionist",
+    "explanation": "The receptionist is often called the mirror of the organization as they create the first impression on visitors."
+  },
+  {
+    "question": "Business studies is taught to enable the students to",
+    "options": ["know how to draw a diagram", "pass examination", "know how business provides for their daily needs and want", "know how to smuggle"],
+    "correct": "know how business provides for their daily needs and want",
+    "explanation": "Business studies helps students understand how businesses operate and satisfy human needs and wants."
+  },
+  {
+    "question": "The regular payment made by the insured to the insurer is called",
+    "options": ["dividend", "profit", "premium", "cash"],
+    "correct": "premium",
+    "explanation": "Premium is the amount paid regularly by the insured to the insurance company for coverage."
+  },
+  {
+    "question": "is an act of giving a clear detail of a business transaction.",
+    "options": ["accountability", "probity", "transparency", "policy"],
+    "correct": "transparency",
+    "explanation": "Transparency involves openness and clear disclosure of business transactions and operations."
+  },
+  {
+    "question": "A fixed amount given to the petty cashier for minor expenses is called",
+    "options": ["stipend", "cash", "cash float", "loan"],
+    "correct": "cash float",
+    "explanation": "A cash float (imprest) is the fixed amount provided to a petty cashier to handle minor expenses."
+  },
+  {
+    "question": "Passing information, ideas, feeling, opinion from one person to another is called",
+    "options": ["busybody", "transportation", "communication", "whisper"],
+    "correct": "communication",
+    "explanation": "Communication is the exchange of information, ideas, and feelings between people."
+  },
+  {
+    "question": "Which column of cashbook is used for recording description of transaction?",
+    "options": ["Folio", "Particulars", "Date", "Amount"],
+    "correct": "Particulars",
+    "explanation": "The particulars column contains a brief description or narration of the transaction."
+  },
+  {
+    "question": "Double entry principles state that for every",
+    "options": ["credit entry transactions, there must be a corresponding debit entry, vice versa", "cash entry, there must be a credit entry", "debtors entry, there must be a corresponding creditor, vice versa", "all of the above"],
+    "correct": "credit entry transactions, there must be a corresponding debit entry, vice versa",
+    "explanation": "Double entry bookkeeping requires that every debit entry must have a corresponding credit entry and vice versa."
+  },
+  {
+    "question": "A situation whereby a transaction affects both bank and cash account is known as",
+    "options": ["journal entries", "imprest entry", "contra entries", "errors"],
+    "correct": "contra entries",
+    "explanation": "Contra entries occur when a transaction affects both cash and bank accounts simultaneously."
+  },
+  {
+    "question": "is given to every employee at the end of the month.",
+    "options": ["Voucher", "Tax card", "Payslip", "Deduction"],
+    "correct": "Payslip",
+    "explanation": "A payslip is provided to employees showing details of monthly earnings and deductions."
+  },
+  {
+    "question": "A book used to record all credit transactions is called",
+    "options": ["purchases journal", "sales journal", "return inwards books", "cash account"],
+    "correct": "purchases journal",
+    "explanation": "Purchases journal (purchases day book) records all credit purchases of goods."
+  },
+  {
+    "question": "How long can a cheque be kept before it becomes stale?",
+    "options": ["9 months", "3 months", "6 months", "2 months"],
+    "correct": "6 months",
+    "explanation": "A cheque becomes stale and invalid after six months from the date of issue."
+  },
+  {
+    "question": "Which machine could be used to produce exact copy of original document within the shortest minutes?",
+    "options": ["Computer", "Camera", "Typewriter", "Photocopy machine"],
+    "correct": "Photocopy machine",
+    "explanation": "A photocopy machine quickly produces exact copies of original documents."
+  },
+  {
+    "question": "One of the similarities between computer and typewriter is",
+    "options": ["monitor", "keyboard", "CPU", "joystick"],
+    "correct": "keyboard",
+    "explanation": "Both computers and typewriters have keyboards for inputting text."
+  },
+  {
+    "question": "All these are materials used in cleaning typewriter except",
+    "options": ["methylated spirit", "long brush", "typewriter oil", "broom"],
+    "correct": "broom",
+    "explanation": "A broom is too large and not suitable for cleaning a typewriter; specialized brushes and materials are used."
+  },
+  {
+    "question": "The principal book of account is",
+    "options": ["journal", "ledger", "purchase", "cash"],
+    "correct": "ledger",
+    "explanation": "The ledger is the principal book where all accounts are maintained."
+  },
+  {
+    "question": "All the following are documents commonly found in the wages department except",
+    "options": ["pay slip", "time card", "wages and salaries", "payroll"],
+    "correct": "wages and salaries",
+    "explanation": "Wages and salaries is a general term, not a specific document; payslips, time cards, and payroll are actual documents."
+  },
+  {
+    "question": "is the book for recording receipts and payment of money in cash or cheque.",
+    "options": ["Invoice", "Cash book", "Receipt", "Journal"],
+    "correct": "Cash book",
+    "explanation": "The cash book records all cash and bank receipts and payments."
+  },
+  {
+    "question": "The type of advertisement jointly sponsored by a group of producer of similar product is called",
+    "options": ["persuasive advertisement", "mass advertisement", "competitive advertisement", "producer advertisement"],
+    "correct": "producer advertisement",
+    "explanation": "Producer (or cooperative) advertising is jointly sponsored by producers of similar products to promote generic consumption."
+  },
+  {
+    "question": "There are vowels in Pitman Shorthand.",
+    "options": ["13", "12", "8", "5"],
+    "correct": "12",
+    "explanation": "Pitman shorthand uses 12 vowel sounds represented by dots and dashes."
+  },
+  {
+    "question": "A middlemen is also known as",
+    "options": ["consumer", "wholesaler", "retailer", "agent"],
+    "correct": "agent",
+    "explanation": "A middleman (intermediary) acts as an agent connecting producers and consumers."
+  },
+  {
+    "question": "A trading account is prepared to know",
+    "options": ["cost of sales", "cross profit or loss", "surplus", "dividend"],
+    "correct": "cross profit or loss",
+    "explanation": "The trading account is prepared to determine the gross profit or gross loss of a business."
+  },
+  {
+    "question": "The first six consonants are written",
+    "options": ["downward", "upward", "horizontal", "parallel"],
+    "correct": "downward",
+    "explanation": "In Pitman shorthand, the first six consonants are written with downward strokes."
+  },
+  {
+    "question": "principle states that the insurance company can take over the right of the insured once he has been compensated.",
+    "options": ["Indemnity", "Subrogation", "Proximate cause", "Premium"],
+    "correct": "Subrogation",
+    "explanation": "Subrogation allows the insurer to assume the insured's rights to recover from third parties after paying compensation."
+  },
+  {
+    "question": "All these are source documents except",
+    "options": ["cash", "receipt", "teller", "statement of account"],
+    "correct": "cash",
+    "explanation": "Cash itself is not a source document; receipts, tellers, and statements of account are source documents."
+  },
+  {
+    "question": "The mail that are sent out of the organization is called",
+    "options": ["incoming mail", "out mail", "outgoing mail", "in mail"],
+    "correct": "outgoing mail",
+    "explanation": "Outgoing mail refers to correspondence sent from an organization to external recipients."
+  },
+  {
+    "question": "Foreign trade is divided into",
+    "options": ["2", "3", "4", "5"],
+    "correct": "2",
+    "explanation": "Foreign trade consists of two types: imports and exports."
+  },
+  {
+    "question": "Another name for Home Trade is",
+    "options": ["cosmetic trade", "rural trade", "domestic trade", "local trade"],
+    "correct": "domestic trade",
+    "explanation": "Home trade is also called domestic trade or internal trade—trade within a country's borders."
+  },
+  {
+    "question": "is a situation in which important information must be kept secret.",
+    "options": ["Security", "Document", "Confidentiality", "Cabinet"],
+    "correct": "Confidentiality",
+    "explanation": "Confidentiality is the principle of keeping sensitive information private and secure."
+  },
+  {
+    "question": "The means of transporting heavy objects or metals from abroad is through",
+    "options": ["airways", "cable", "pipeline", "water"],
+    "correct": "water",
+    "explanation": "Water (sea) transport is most suitable for moving heavy and bulky goods internationally."
+  },
+  {
+    "question": "School staff room is an example of office.",
+    "options": ["open office", "closed office", "large office", "small office"],
+    "correct": "closed office",
+    "explanation": "A staff room is a closed office as it is a separate room for a specific group of workers."
+  },
+  {
+    "question": "key can be used to extend typing beyond the set margin.",
+    "options": ["Margin release key", "Paper release key", "Margin set", "Tabulator set key"],
+    "correct": "Margin release key",
+    "explanation": "The margin release key allows typing beyond the preset margin limits on a typewriter."
+  },
+  {
+    "question": "The deduction granted to customers on the amount of goods sold to him/her is referred to as",
+    "options": ["discount received", "discount allowed", "discount", "cash reduction"],
+    "correct": "discount allowed",
+    "explanation": "Discount allowed is the reduction given to customers, recorded as an expense to the seller."
+  },
+  {
+    "question": "Opening stock + purchases - closing stock is equal to",
+    "options": ["turn over", "cost of goods sold", "cost of goods available", "gross profit"],
+    "correct": "cost of goods sold",
+    "explanation": "Cost of goods sold = Opening stock + Purchases - Closing stock."
+  },
+  {
+    "question": "The person who receives the amount written on a cheque is known as",
+    "options": ["drawer", "drawee", "payee", "payer"],
+    "correct": "payee",
+    "explanation": "The payee is the person or entity to whom a cheque is made payable and who receives the payment."
+  },
+  {
+    "question": "The department that is responsible for keeping the financial records of a business organization is called",
+    "options": ["personnel", "purchasing", "account", "sales"],
+    "correct": "account",
+    "explanation": "The accounts department maintains all financial records and prepares financial statements."
+  },
+  {
+    "question": "The safest means of transportation is",
+    "options": ["air transportation", "water transportation", "road transportation", "rail transportation"],
+    "correct": "rail transportation",
+    "explanation": "Rail transport is statistically one of the safest modes of transportation with fewer accidents."
+  },
+  {
+    "question": "The physical counting of goods held in the store is known as",
+    "options": ["store requisition", "store record", "stock taking", "stock making"],
+    "correct": "stock taking",
+    "explanation": "Stock taking is the physical verification and counting of inventory on hand."
+  },
+  {
+    "question": "All these are documents handled by the receptionist except",
+    "options": ["visitors book", "telephone message pad", "pay slip", "business card"],
+    "correct": "pay slip",
+    "explanation": "Payslips are handled by the wages/accounts department, not the receptionist."
+  },
+  {
+    "question": "Buying and selling of goods is called",
+    "options": ["business", "trading", "occupation", "Work"],
+    "correct": "trading",
+    "explanation": "Trading specifically refers to the buying and selling of goods and services."
+  },
+  {
+    "question": "A document sent to a buyer to show the description of goods bought and the total amount due is known as",
+    "options": ["enquiry", "invoice", "quotation", "price list"],
+    "correct": "invoice",
+    "explanation": "An invoice details goods sold, quantities, prices, and the total amount due from the buyer."
+  },
+  {
+    "question": "Which of these is an accounting equation?",
+    "options": ["Assets = Capital + Liabilities", "Capital = Capital - Liabilities", "Capital = Asset + Liabilities", "Capital = Net assets + Liabilities"],
+    "correct": "Assets = Capital + Liabilities",
+    "explanation": "The fundamental accounting equation is Assets = Liabilities + Capital (or Equity)."
+  },
+  {
+    "question": "The art of keeping accounts in a regular and systematic manner is called",
+    "options": ["accountancy", "accounting", "book keeping", "Capital"],
+    "correct": "book keeping",
+    "explanation": "Bookkeeping is the systematic recording of financial transactions."
+  },
+  {
+    "question": "In which of the following books is the day to day transaction of a business recorded?",
+    "options": ["Cash", "journal", "Ledger", "Trading account"],
+    "correct": "journal",
+    "explanation": "The journal (book of original entry) records day-to-day transactions in chronological order."
+  },
+  {
+    "question": "Profit and loss account is the that determines the organization.",
+    "options": ["assets and liabilities", "gross profit or gross loss", "income and expenditure", "net profit or net loss"],
+    "correct": "net profit or net loss",
+    "explanation": "The Profit and Loss Account determines the net profit or net loss after all expenses."
+  },
+  {
+    "question": "Banking and trade. examples of trade.",
+    "options": ["aids to trade", "export", "foreign", "home trade"],
+    "correct": "aids to trade",
+    "explanation": "Banking is an aid to trade, not trade itself; it facilitates commercial activities."
+  },
+  {
+    "question": "A shipping machine is used for",
+    "options": ["clipping collated documents", "destroying papers that are no more useful", "joining torn documents", "photocopying document"],
+    "correct": "destroying papers that are no more useful",
+    "explanation": "A shredding machine destroys unwanted or confidential documents."
+  },
+  {
+    "question": "Those who buy in large quantities from producers are called",
+    "options": ["consumers", "hawkers", "manufacturers", "wholesalers"],
+    "correct": "wholesalers",
+    "explanation": "Wholesalers purchase goods in bulk from producers and sell to retailers."
+  },
+  {
+    "question": "The principle of double entry states that every",
+    "options": ["account must be transferred to the balance sheet", "credit entry must be posted to the balance sheet", "debit entry must have a corresponding credit entry and vice versa", "transactions must be documented twice in a balance sheet"],
+    "correct": "debit entry must have a corresponding credit entry and vice versa",
+    "explanation": "Double entry bookkeeping requires that for every debit, there must be an equal and corresponding credit."
+  },
+  {
+    "question": "In double entry book keeping, the two aspects of a transaction are",
+    "options": ["buying and giving", "buying and selling", "debit and giving", "giving and receiving"],
+    "correct": "giving and receiving",
+    "explanation": "Every transaction has a giving (credit) aspect and a receiving (debit) aspect."
+  },
+  {
+    "question": "The advertising media usually found on strategic points along major roads and city centre is",
+    "options": ["bill boards", "journals", "newspaper", "radio"],
+    "correct": "bill boards",
+    "explanation": "Billboards are large outdoor advertising structures placed along roads and in city centers."
+  },
+  {
+    "question": "The following are extractive occupation except",
+    "options": ["bricklaying", "fishing", "lumbering", "mining"],
+    "correct": "bricklaying",
+    "explanation": "Bricklaying is a construction occupation; extractive occupations involve obtaining natural resources."
+  },
+  {
+    "question": "Isaac pitman published the first edition of his shorthand work in the year",
+    "options": ["1830", "1837", "1847", "1855"],
+    "correct": "1837",
+    "explanation": "Sir Isaac Pitman published the first edition of his shorthand system in 1837."
+  },
+  {
+    "question": "The following are consonants with heavy sound except",
+    "options": ["dee", "ef", "ye", "zee"],
+    "correct": "ef",
+    "explanation": "In Pitman shorthand, 'ef' (F) is a light consonant, while others listed are heavy."
+  },
+  {
+    "question": "A hyphen sign placed under an outline means",
+    "options": ["dash", "delete", "initial capital", "lower case"],
+    "correct": "initial capital",
+    "explanation": "In proofreading/shorthand, a hyphen under a word indicates it should be capitalized."
+  },
+  {
+    "question": "The material that gives color on a typewriter is called",
+    "options": ["Stencil", "Carbon", "Ribbon", "Ink"],
+    "correct": "Ribbon",
+    "explanation": "The typewriter ribbon contains ink that transfers to paper when keys are struck."
+  },
+  {
+    "question": "Methods of buying do not include",
+    "options": ["auctioning", "description", "inspection", "tasting"],
+    "correct": "tasting",
+    "explanation": "Tasting is a method of sampling, but not a formal method of buying like auction, description, or inspection."
+  },
+  {
+    "question": "Which of the following advertising media can be used to widely reach the rural population?",
+    "options": ["Radio", "Television", "Hand bill", "Bill board"],
+    "correct": "Radio",
+    "explanation": "Radio has wide reach in rural areas where literacy and electricity for TV may be limited."
+  },
+  {
+    "question": "All of the following are examples of current assets except",
+    "options": ["bank", "cash", "debtor", "stock"],
+    "correct": "bank",
+    "explanation": "Bank is a current asset; all listed options are actually current assets. However, bank may be considered differently from others."
+  },
+  {
+    "question": "is the hand written material which needs to be typed in a readable way.",
+    "options": ["Typescript", "Manuscript", "Stencils", "Typewriter"],
+    "correct": "Manuscript",
+    "explanation": "A manuscript is a handwritten document that needs to be typed."
+  },
+  {
+    "question": "Ayosubomi bought 10 biros at N10 each. How much did she pay?",
+    "options": ["N100", "N110", "N400", "N1000"],
+    "correct": "N100",
+    "explanation": "10 × N10 = N100 total payment."
+  },
+  {
+    "question": "Which means of transport is the commonest in West Africa?",
+    "options": ["Water transport", "Air transport", "Road transport", "Rail transport"],
+    "correct": "Road transport",
+    "explanation": "Road transport is the most common means of transportation in West Africa."
+  },
+  {
+    "question": "The book containing the telephone numbers and addresses of telephone subscribers is called",
+    "options": ["telephone number", "telephone book", "telephone address", "telephone directory"],
+    "correct": "telephone directory",
+    "explanation": "A telephone directory lists names, addresses, and phone numbers of telephone subscribers."
+  },
+  {
+    "question": "Petty cash book is used to",
+    "options": ["record minor expenses", "record staff", "record book", "record goods sold on credit"],
+    "correct": "record minor expenses",
+    "explanation": "The petty cash book records small, routine expenses of a business."
+  },
+  {
+    "question": "A system of filing whereby all correspondence is filled according to state or town of origin is called",
+    "options": ["alphabetical", "chronological", "geographical", "center"],
+    "correct": "geographical",
+    "explanation": "Geographical filing organizes documents by location such as state, town, or country."
+  }
+];
+    }
+    
+    // ---------- LOAD QUESTIONS ----------
+    async function loadQuestions() {
+      const pdfQuestions = getPDFQuestionBank();
+      
+      if (db) {
+        try {
+          const qSnapshot = await getDocs(collection(db, "bst_questions"));
+          if (!qSnapshot.empty) {
+            allQuestions = [];
+            qSnapshot.forEach(doc => allQuestions.push({ id: doc.id, ...doc.data() }));
+          } else {
+            for (let q of pdfQuestions) {
+              await addDoc(collection(db, "bst_questions"), q);
+            }
+            allQuestions = [...pdfQuestions];
+          }
+        } catch (e) {
+          console.warn("Firestore fetch failed, using PDF questions", e);
+          allQuestions = pdfQuestions;
+        }
+      } else {
+        allQuestions = pdfQuestions;
+      }
+      document.getElementById('questionCountDisplay').innerText = allQuestions.length;
+    }
+    
+    // ---------- START EXAM ----------
+    function startExam() {
+      if (allQuestions.length < 60) { alert("Need at least 60 questions in database. Currently: " + allQuestions.length); return; }
+      const shuffled = [...allQuestions].sort(()=>Math.random()-0.5);
+      currentExamQuestions = shuffled.slice(0,60);
+      currentExamQuestions = currentExamQuestions.map(q => {
+        const opts = [...q.options];
+        for (let i=opts.length-1; i>0; i--) {
+          const j = Math.floor(Math.random()*(i+1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {...q, options: opts};
+      });
+      userAnswers = {};
+      currentIndex = 0;
+      examSubmitted = false;
+      examStartTime = Date.now();
+      showView('exam');
+      renderQuestion();
+      startTimer();
+      renderProgressDots();
+    }
+    
+    function renderQuestion() {
+      const q = currentExamQuestions[currentIndex];
+      document.getElementById('questionText').innerText = q.question;
+      const container = document.getElementById('optionsContainer');
+      const selected = userAnswers[currentIndex];
+      container.innerHTML = q.options.map((opt, idx) => {
+        const letter = String.fromCharCode(65+idx);
+        return `<div class="option-card p-4 border rounded-xl hover:border-indigo-400 dark:hover:border-indigo-400 ${selected === opt ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-gray-200 dark:border-gray-700'}" data-opt="${opt}">
+          <span class="font-semibold mr-2">${letter}.</span> ${opt}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.option-card').forEach(card => card.addEventListener('click', (e) => {
+        const val = card.dataset.opt;
+        userAnswers[currentIndex] = val;
+        renderQuestion();
+        renderProgressDots();
+      }));
+      document.getElementById('currentQNumber').innerText = `${currentIndex+1}`;
+      document.getElementById('prevBtn').disabled = currentIndex === 0;
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentIndex === 59) nextBtn.innerHTML = 'Finish <i class="fas fa-check"></i>';
+      else nextBtn.innerHTML = 'Next <i class="fas fa-chevron-right"></i>';
+    }
+    
+    function nextQuestion() {
+      if (currentIndex < 59) { currentIndex++; renderQuestion(); renderProgressDots(); }
+      else { if (!examSubmitted) submitExam(); }
+    }
+    function prevQuestion() { if (currentIndex>0) { currentIndex--; renderQuestion(); renderProgressDots(); } }
+    
+    function renderProgressDots() {
+      const dots = document.getElementById('progressDots');
+      dots.innerHTML = currentExamQuestions.map((_,i)=> {
+        const answered = userAnswers[i] !== undefined;
+        return `<span class="w-3 h-3 rounded-full ${i===currentIndex?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'} ${answered?'ring-2 ring-green-400':''}"></span>`;
+      }).join('');
+    }
+    
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (examSubmitted) { clearInterval(timerInterval); return; }
+        const elapsed = Math.floor((Date.now() - examStartTime)/1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        const mins = Math.floor(remaining/60), secs = remaining%60;
+        document.getElementById('timerDisplay').innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        if (remaining <= 0) { submitExam(); }
+      }, 200);
+    }
+    
+    async function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+      clearInterval(timerInterval);
+      let correctCount = 0;
+      const reviewItems = currentExamQuestions.map((q, idx) => {
+        const userAns = userAnswers[idx] || '(not answered)';
+        const isCorrect = (userAns === q.correct);
+        if (isCorrect) correctCount++;
+        return { ...q, userAnswer: userAns, isCorrect };
+      });
+      const score = correctCount;
+      const percentage = Math.round((score/60)*100);
+      
+      if (db) {
+        try {
+          await addDoc(collection(db, "attempts"), {
+            score, total:60, percentage, timestamp: serverTimestamp()
+          });
+        } catch(e) { console.warn("save attempt failed", e); }
+      }
+      
+      showView('review');
+      displayReview(reviewItems, score);
+    }
+    
+    function displayReview(items, score) {
+      document.getElementById('reviewSummary').innerHTML = `<div class="text-2xl font-bold">Score: ${score}/60 (${Math.round(score/60*100)}%)</div><div class="text-sm">${score>=30?'Pass ✅':'Fail ❌'}</div>`;
+      const list = document.getElementById('reviewList');
+      list.innerHTML = items.map((item, i) => {
+        const correctIcon = item.isCorrect ? '✅' : '❌';
+        return `<div class="border-b pb-4"><div class="font-semibold">Q${i+1}: ${item.question}</div>
+          <div class="grid grid-cols-2 gap-2 mt-2 text-sm"><div>Your: ${item.userAnswer} ${correctIcon}</div><div>Correct: ${item.correct} ✅</div></div>
+          <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded text-sm"><i class="fas fa-info-circle mr-1"></i> ${item.explanation || 'No explanation provided.'}</div>
+        </div>`;
+      }).join('');
+    }
+    
+    function showView(view) {
+      dashboardView.classList.add('hidden'); examView.classList.add('hidden'); reviewView.classList.add('hidden'); adminView.classList.add('hidden'); aiTutorView.classList.add('hidden');
+      if (view === 'dashboard') dashboardView.classList.remove('hidden');
+      else if (view === 'exam') examView.classList.remove('hidden');
+      else if (view === 'review') reviewView.classList.remove('hidden');
+      else if (view === 'admin') { adminView.classList.remove('hidden'); loadAdminData(); }
+      else if (view === 'ai') aiTutorView.classList.remove('hidden');
+    }
+    
+    async function loadAdminData() {
+      if (!db) return;
+      const qSnap = await getDocs(collection(db, "bst_questions"));
+      const tbody = document.getElementById('questionsTableBody');
+      tbody.innerHTML = '';
+      qSnap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.question.substring(0,30)}...</td><td>${d.options.join(', ').substring(0,30)}</td><td>${d.correct}</td><td><button class="text-red-500" data-id="${doc.id}">Del</button></td></tr>`;
+        tbody.innerHTML += row;
+      });
+      const aSnap = await getDocs(query(collection(db, "attempts"), orderBy("timestamp","desc")));
+      const scoresDiv = document.getElementById('scoresList');
+      scoresDiv.innerHTML = '';
+      aSnap.forEach(doc => { const d=doc.data(); scoresDiv.innerHTML += `<div class="p-2 border-b">${d.score}/60 (${d.percentage}%) - ${d.timestamp?.toDate?.()?.toLocaleString()||'now'}</div>`; });
+    }
+    
+    // Event listeners
+    document.getElementById('startExamBtn').addEventListener('click', startExam);
+    document.getElementById('submitExamBtn').addEventListener('click', ()=> { if(confirm('Submit exam?')) submitExam(); });
+    document.getElementById('prevBtn').addEventListener('click', prevQuestion);
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('backToDashboardFromReview').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('adminBtn').addEventListener('click', ()=> showView('admin'));
+    document.getElementById('closeAdmin').addEventListener('click', ()=> showView('dashboard'));
+    document.getElementById('aiTutorBtn').addEventListener('click', ()=> showView('ai'));
+    document.getElementById('closeAiTutor').addEventListener('click', ()=> showView('dashboard'));
+    
+    document.getElementById('sendChatBtn').addEventListener('click', ()=>{
+      const inp = document.getElementById('chatInput'); const msg = inp.value.trim();
+      if(!msg) return;
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML += `<div class="text-right"><span class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg inline-block">${msg}</span></div>`;
+      setTimeout(()=>{
+        let response = "I'm here to help with PVS topics!";
+        if (msg.toLowerCase().includes('human trafficking')) response = "Human trafficking is modern-day slavery involving recruitment for exploitation. It's a serious crime.";
+        else if (msg.toLowerCase().includes('constitution')) response = "A constitution is the supreme body of rules guiding a country's governance.";
+        else if (msg.toLowerCase().includes('peace')) response = "Peace can be positive (addressing root causes) or negative (absence of violence).";
+        else if (msg.toLowerCase().includes('family')) response = "Family types include nuclear and extended family. Extended family includes relatives beyond parents and children.";
+        chat.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">🤖 ${response}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      },500);
+      inp.value = '';
+    });
+    
+    document.querySelectorAll('.adminTab').forEach(t => t.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-panel').forEach(p=>p.classList.add('hidden'));
+      document.querySelectorAll('.adminTab').forEach(btn=>btn.classList.remove('text-indigo-600','border-b-2','border-indigo-600'));
+      t.classList.add('text-indigo-600','border-b-2','border-indigo-600');
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+    }));
+    
+    document.getElementById('addQuestionBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.remove('hidden'));
+    document.getElementById('closeModalBtn').addEventListener('click', ()=> document.getElementById('questionModal').classList.add('hidden'));
+    document.getElementById('questionForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const q = {
+        question: document.getElementById('qText').value,
+        options: [document.getElementById('optA').value, document.getElementById('optB').value, document.getElementById('optC').value, document.getElementById('optD').value],
+        correct: document.getElementById('correctAns').value,
+        explanation: document.getElementById('explanation').value
+      };
+      if(db) await addDoc(collection(db,"bst_questions"), q);
+      alert('Question added');
+      document.getElementById('questionModal').classList.add('hidden');
+      document.getElementById('questionForm').reset();
+      loadAdminData();
+    });
+    
+    // Initialize
+    loadQuestions();
+    showView('dashboard');
+  })();
+</script>
+</body>
+</html>
